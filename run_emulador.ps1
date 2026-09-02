@@ -34,16 +34,19 @@ Get-Process | Where-Object { $_.ProcessName -like "*emulator*" -or $_.ProcessNam
 Start-Sleep -Seconds 3
 
 # -------------------------------------------------------------------
-# 2. Inicia emulador com aceleração WHPX + GPU host
+# 2. Inicia emulador com aceleração WHPX + GPU host + 6GB RAM
 # -------------------------------------------------------------------
-Write-Host "[2/6] Iniciando emulador (WHPX + GPU host)..."
+Write-Host "[2/6] Iniciando emulador (WHPX + GPU host, 6GB RAM)..."
 
 if (-not (Test-Path $emulator)) {
     Write-Host "ERRO: emulador não encontrado em $emulator"
     exit 1
 }
 
-Start-Process -FilePath $emulator -ArgumentList "-avd $AVD_NAME -accel on -gpu host -no-snapshot-load"
+# -memory = 6GB de RAM (6144 MB)
+# -accel on = usa aceleração de hardware (WHPX)
+# -gpu host = usa GPU nativa do Windows
+Start-Process -FilePath $emulator -ArgumentList "-avd $AVD_NAME -accel on -gpu host -memory 6144 -no-snapshot-load"
 Start-Sleep -Seconds 20
 
 # -------------------------------------------------------------------
