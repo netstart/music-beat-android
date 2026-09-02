@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.BPMPlayerNative" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorOnPrimary">@color/on_accent</item>
+        <item name="colorSecondary">@color/accent_dim</item>
+        <item name="colorSecondaryContainer">@color/bg_icon_button</item>
+        <item name="colorOnSecondaryContainer">@color/text_primary</item>
+        <item name="android:colorBackground">@color/bg_base</item>
+        <item name="colorSurface">@color/bg_card</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="android:statusBarColor">@color/bg_base</item>
+        <item name="android:navigationBarColor">@color/bg_base</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="BeatSlider" parent="Widget.Material3.Slider">
+        <item name="trackColorActive">@color/accent</item>
+        <item name="trackColorInactive">@color/outline</item>
+        <item name="thumbColor">@color/accent</item>
+        <item name="haloColor">@color/accent_wash</item>
+        <item name="tickVisible">false</item>
+        <item name="labelBehavior">floating</item>
+    </style>
+</resources>

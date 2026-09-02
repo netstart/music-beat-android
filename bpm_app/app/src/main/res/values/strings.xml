@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BeatTrack</string>
+    <string name="header_subtitle">Tempo real para músicas locais</string>
+    <string name="bpm_caption">BPM</string>
+    <string name="btn_reset">Original</string>
+    <string name="btn_choose">Escolher música</string>
+    <string name="empty_title">Nenhuma música selecionada</string>
+    <string name="empty_hint">Escolha um arquivo de áudio para começar</string>
+    <string name="status_analyzing">Analisando BPM…</string>
+    <string name="toast_no_bpm">BPM não detectado — ajuste manual liberado</string>
+    <string name="toast_bpm_detected">BPM detectado: %1$.1f</string>
+    <string name="status_bpm_detected">BPM %1$.1f detectado</string>
+    <string name="cd_play">Reproduzir</string>
+    <string name="cd_pause">Pausar</string>
+    <string name="cd_minus">Diminuir BPM</string>
+    <string name="cd_plus">Aumentar BPM</string>
+    <string name="cd_reset">Restaurar tempo original</string>
+    <string name="cd_choose">Escolher arquivo de música</string>
+</resources>
