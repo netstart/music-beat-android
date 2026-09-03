@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Smartphones pequenos/médios (altura 500-600dp) — base -->
+    <dimen name="song_list_height">140dp</dimen>
+    <dimen name="hero_min_height">82dp</dimen>
+    <dimen name="hero_bpm_text_size">33sp</dimen>
+    <dimen name="hero_icon_size">33dp</dimen>
+    <dimen name="hero_icon_inner">16dp</dimen>
+    <dimen name="footer_button_height">40dp</dimen>
+    <dimen name="bpm_button_size">44dp</dimen>
+    <dimen name="bpm_reset_height">36dp</dimen>
+    <dimen name="footer_spacer">72dp</dimen>
+    <dimen name="card_margin_top">16dp</dimen>
+    <dimen name="screen_padding_top">16dp</dimen>
+    <dimen name="card_padding">10dp</dimen>
+    <dimen name="screen_padding_horizontal">16dp</dimen>
+    <dimen name="track_title_size">14sp</dimen>
+    <dimen name="playlist_label_size">11sp</dimen>
+</resources>

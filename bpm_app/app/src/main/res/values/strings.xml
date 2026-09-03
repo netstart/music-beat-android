@@ -26,4 +26,11 @@
     <string name="empty_song_list">Nenhuma música encontrada no dispositivo</string>
     <string name="artist_format">%1$s · %2$s</string>
     <string name="empty_song_list_hint">Adicione arquivos de áudio para exibi-los aqui</string>
+    <string name="label_playlist">Músicas do dispositivo</string>
+    <string name="empty_song_list_no_permission">Permissão de áudio negada — conceda acesso em Configurações para listar as músicas.</string>
+    <string name="sort_title">Título</string>
+    <string name="sort_artist">Artista</string>
+    <string name="sort_manual">Manual</string>
+    <string name="cd_drag_handle">Arraste para reordenar</string>
+    <string name="cd_sort">Ordenar lista</string>
 </resources>

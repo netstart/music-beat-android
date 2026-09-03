@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Telas muito pequenas (altura < 500dp) — aperta tudo -->
+    <dimen name="song_list_height">100dp</dimen>
+    <dimen name="hero_min_height">68dp</dimen>
+    <dimen name="hero_bpm_text_size">27sp</dimen>
+    <dimen name="hero_icon_size">27dp</dimen>
+    <dimen name="hero_icon_inner">13dp</dimen>
+    <dimen name="footer_button_height">36dp</dimen>
+    <dimen name="bpm_button_size">40dp</dimen>
+    <dimen name="bpm_reset_height">32dp</dimen>
+    <dimen name="footer_spacer">64dp</dimen>
+    <dimen name="card_margin_top">10dp</dimen>
+    <dimen name="screen_padding_top">10dp</dimen>
+    <dimen name="card_padding">8dp</dimen>
+    <dimen name="screen_padding_horizontal">12dp</dimen>
+    <dimen name="track_title_size">13sp</dimen>
+    <dimen name="playlist_label_size">10sp</dimen>
+</resources>
