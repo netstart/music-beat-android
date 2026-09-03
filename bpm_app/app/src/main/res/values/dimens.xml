@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Padding horizontal padrão (portrait estreito) -->
+    <dimen name="screen_padding_horizontal">16dp</dimen>
+    <dimen name="screen_padding_top">24dp</dimen>
+    <dimen name="screen_padding_bottom">24dp</dimen>
+
+    <!-- Card padding -->
+    <dimen name="card_padding">20dp</dimen>
+
+    <!-- Hero section -->
+    <dimen name="hero_min_height">280dp</dimen>
+    <dimen name="hero_icon_size">64dp</dimen>
+    <dimen name="hero_bpm_text_size">72sp</dimen>
+
+    <!-- Card / SongList -->
+    <dimen name="song_list_height">200dp</dimen>
+
+    <!-- Título e subtítulo -->
+    <dimen name="title_text_size">20sp</dimen>
+    <dimen name="subtitle_text_size">13sp</dimen>
+
+    <!-- Track info -->
+    <dimen name="track_title_size">16sp</dimen>
+    <dimen name="track_status_size">12sp</dimen>
+
+    <!-- Spacing entre seções -->
+    <dimen name="section_spacing">24dp</dimen>
+    <dimen name="item_spacing">12dp</dimen>
+</resources>

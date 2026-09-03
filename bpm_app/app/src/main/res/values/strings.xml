@@ -11,10 +11,19 @@
     <string name="toast_no_bpm">BPM não detectado — ajuste manual liberado</string>
     <string name="toast_bpm_detected">BPM detectado: %1$.1f</string>
     <string name="status_bpm_detected">BPM %1$.1f detectado</string>
+    <string name="cd_music_note">Nota musical</string>
     <string name="cd_play">Reproduzir</string>
     <string name="cd_pause">Pausar</string>
     <string name="cd_minus">Diminuir BPM</string>
     <string name="cd_plus">Aumentar BPM</string>
     <string name="cd_reset">Restaurar tempo original</string>
+    <string name="label_loop_on">Repetindo — clique para desligar</string>
+    <string name="label_loop_off">Não repetindo — clique para ligar</string>
+    <string name="label_loop_off_state">Não repetir</string>
+    <string name="label_loop_on_state">Repetir</string>
     <string name="cd_choose">Escolher arquivo de música</string>
+    <string name="cd_repeat">Repetir música</string>
+    <string name="empty_song_list">Nenhuma música encontrada no dispositivo</string>
+    <string name="artist_format">%1$s · %2$s</string>
+    <string name="empty_song_list_hint">Adicione arquivos de áudio para exibi-los aqui</string>
 </resources>

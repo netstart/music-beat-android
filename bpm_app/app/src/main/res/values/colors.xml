@@ -11,4 +11,5 @@
     <color name="text_tertiary">#FF5C6B78</color>
     <color name="outline">#FF263340</color>
     <color name="accent_wash">#242EE6A8</color>
+    <color name="accent_light">#15252E</color>
 </resources>
