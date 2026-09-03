@@ -41,4 +41,9 @@
     <string name="bpm_range_max">200</string>
     <string name="snackbar_bpm_detected">BPM detectado: %1$.1f</string>
     <string name="snackbar_no_bpm">BPM não detectado — ajuste manual liberado</string>
+    <string name="menu_delete_song">Excluir do dispositivo</string>
+    <string name="menu_delete_confirm_title">Excluir música?</string>
+    <string name="menu_delete_confirm_msg">Tem certeza que deseja excluir \"%1$s\" do dispositivo? Esta ação não pode ser desfeita.</string>
+    <string name="toast_song_deleted">Música excluída</string>
+    <string name="toast_delete_failed">Não foi possível excluir o arquivo</string>
 </resources>

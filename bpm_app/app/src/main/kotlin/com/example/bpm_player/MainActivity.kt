@@ -4,6 +4,8 @@ import android.Manifest
 import android.animation.ObjectAnimator
 import android.content.res.ColorStateList
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.widget.PopupMenu
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
@@ -129,6 +131,12 @@ class MainActivity : AppCompatActivity() {
                         onFilePicked(song.uri)
                         binding.songIcon.announceForAccessibility(getString(R.string.cd_play))
                     }
+                }
+
+                binding.root.setOnLongClickListener { view ->
+                    view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    showDeleteMenu(view, song, position)
+                    true
                 }
 
                 if (isPlaying) {
@@ -1095,6 +1103,75 @@ class MainActivity : AppCompatActivity() {
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         return String.format(Locale.US, "%d:%02d", minutes, seconds)
+    }
+
+    private fun showDeleteMenu(anchor: View, song: Song, position: Int) {
+        val popup = PopupMenu(this, anchor)
+        popup.menuInflater.inflate(R.menu.menu_song_item, popup.menu)
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_delete -> {
+                    confirmDeleteSong(song, position)
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun confirmDeleteSong(song: Song, position: Int) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.menu_delete_confirm_title)
+            .setMessage(getString(R.string.menu_delete_confirm_msg, song.title))
+            .setPositiveButton(R.string.menu_delete_song) { _, _ -> deleteSong(song, position) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun deleteSong(song: Song, position: Int) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            var deleted = false
+            try {
+                // Tenta deletar pelo MediaStore (funciona no Android 10+)
+                val rows = contentResolver.delete(song.uri, null, null)
+                deleted = rows > 0
+            } catch (_: Exception) { }
+
+            // Se o MediaStore falhou mas temos o caminho físico, tenta deletar o arquivo
+            if (!deleted && song.filePath.isNotBlank()) {
+                try {
+                    val file = java.io.File(song.filePath)
+                    if (file.exists() && file.delete()) deleted = true
+                } catch (_: Exception) { }
+            }
+
+            withContext(Dispatchers.Main) {
+                if (deleted) {
+                    val songs = songAdapter.songsList().toMutableList()
+                    songs.removeAt(position)
+                    songAdapter.setSongs(songs)
+                    // Para playback se for a música tocando
+                    if (song.uri == playingSongUri) {
+                        exoPlayer?.pause()
+                        playingSongUri = null
+                        selectedSongUri = null
+                        binding.playFab.setImageResource(R.drawable.ic_play)
+                        binding.playFab.contentDescription = getString(R.string.cd_play)
+                        binding.trackTitle.text = getString(R.string.empty_title)
+                        binding.trackStatus.text = getString(R.string.empty_hint)
+                        binding.trackSlider.value = 0f
+                        binding.trackSlider.isEnabled = false
+                        binding.trackTimeCurrent.text = "0:00"
+                        binding.trackTimeTotal.text = "--:--"
+                        handler.removeCallbacks(positionUpdater)
+                    }
+                    android.widget.Toast.makeText(this@MainActivity, R.string.toast_song_deleted, android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    android.widget.Toast.makeText(this@MainActivity, R.string.toast_delete_failed, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {
