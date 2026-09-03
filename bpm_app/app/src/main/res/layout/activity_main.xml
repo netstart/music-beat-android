@@ -36,7 +36,7 @@
                 <!-- Card BPM (esquerda) -->
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:background="@drawable/bg_hero"
                     android:gravity="center_vertical"
@@ -93,7 +93,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:gravity="center"
+                    android:gravity="center_vertical"
                     android:paddingStart="6dp">
 
                     <LinearLayout
@@ -104,11 +104,11 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/bpmMinusButton"
                             style="@style/Widget.Material3.Button.IconButton.Filled"
-                            android:layout_width="36dp"
-                            android:layout_height="36dp"
+                            android:layout_width="@dimen/bpm_button_size"
+                            android:layout_height="@dimen/bpm_button_size"
                             android:contentDescription="@string/cd_minus"
                             app:backgroundTint="@color/bg_icon_button"
-                            app:cornerRadius="18dp"
+                            app:cornerRadius="24dp"
                             app:icon="@drawable/ic_minus"
                             app:iconGravity="textStart"
                             app:iconSize="14sp"
@@ -117,12 +117,12 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/bpmPlusButton"
                             style="@style/Widget.Material3.Button.IconButton.Filled"
-                            android:layout_width="36dp"
-                            android:layout_height="36dp"
+                            android:layout_width="@dimen/bpm_button_size"
+                            android:layout_height="@dimen/bpm_button_size"
                             android:layout_marginStart="4dp"
                             android:contentDescription="@string/cd_plus"
                             app:backgroundTint="@color/bg_icon_button"
-                            app:cornerRadius="18dp"
+                            app:cornerRadius="24dp"
                             app:icon="@drawable/ic_plus"
                             app:iconGravity="textStart"
                             app:iconSize="14sp"
@@ -166,6 +166,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
+                android:contentDescription="@string/cd_bpm_slider"
                 android:stepSize="1"
                 android:value="120"
                 android:valueFrom="40"
@@ -183,7 +184,7 @@
                     android:layout_weight="1"
                     android:fontFamily="sans-serif-medium"
                     android:letterSpacing="0.08"
-                    android:text="40"
+                    android:text="@string/bpm_range_min"
                     android:textColor="@color/text_tertiary"
                     android:textSize="11sp" />
 
@@ -194,7 +195,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:gravity="end"
                     android:letterSpacing="0.08"
-                    android:text="200"
+                    android:text="@string/bpm_range_max"
                     android:textColor="@color/text_tertiary"
                     android:textSize="11sp" />
             </LinearLayout>
@@ -234,6 +235,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
+                    android:contentDescription="@string/cd_track_slider"
                     android:enabled="false"
                     android:value="0"
                     android:valueFrom="0"
@@ -309,6 +311,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="@string/cd_sort"
                 android:drawableStart="@drawable/ic_sort"
                 android:drawablePadding="6dp"
                 android:fontFamily="sans-serif-medium"

@@ -26,5 +26,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- BroadcastReceiver para iniciar música via adb shell (teste/debug) -->
+        <receiver
+            android:name=".TestPlayReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.example.bpm_player.TEST_PLAY" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

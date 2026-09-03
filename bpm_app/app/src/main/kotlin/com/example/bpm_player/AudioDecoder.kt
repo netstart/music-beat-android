@@ -137,6 +137,7 @@ import java.nio.ByteOrder
             if (pcmCount == 0) return null
             return PcmData(pcm.copyOf(pcmCount), sampleRate)
         } catch (e: Exception) {
+            android.util.Log.e("BPM_DECODE", "decode failed: ${e.javaClass.simpleName}: ${e.message}")
             return null
         } finally {
             try {

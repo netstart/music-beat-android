@@ -35,4 +35,10 @@
     <string name="sort_manual">Manual</string>
     <string name="cd_drag_handle">Arraste para reordenar</string>
     <string name="cd_sort">Ordenar lista</string>
+    <string name="cd_bpm_slider">Ajustar BPM</string>
+    <string name="cd_track_slider">Barra de progresso da faixa</string>
+    <string name="bpm_range_min">40</string>
+    <string name="bpm_range_max">200</string>
+    <string name="snackbar_bpm_detected">BPM detectado: %1$.1f</string>
+    <string name="snackbar_no_bpm">BPM não detectado — ajuste manual liberado</string>
 </resources>
