@@ -23,6 +23,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import kotlin.math.sqrt
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -61,9 +62,46 @@ class MainActivity : AppCompatActivity() {
     private var sortMode: SortMode = SortMode.TITLE
     private var itemTouchHelper: ItemTouchHelper? = null
 
+    private val bpmHoldHandler = Handler(Looper.getMainLooper())
+    private var bpmHoldRunnable: Runnable? = null
+    private var bpmHoldDelta = 0f
+
+    private fun createBpmHoldTouchListener(delta: Float): View.OnTouchListener {
+        return View.OnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    adjustBpm(delta)
+                    bpmHoldDelta = delta
+                    bpmHoldRunnable = object : Runnable {
+                        override fun run() {
+                            adjustBpm(bpmHoldDelta)
+                            bpmHoldHandler.postDelayed(this, 60)
+                        }
+                    }
+                    bpmHoldHandler.postDelayed(bpmHoldRunnable!!, 400)
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    bpmHoldRunnable?.let { bpmHoldHandler.removeCallbacks(it) }
+                    bpmHoldRunnable = null
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
     enum class SortMode { TITLE, ARTIST, MANUAL }
 
     private val handler = Handler(Looper.getMainLooper())
+
+    // --- Visualizador BPM (double-tap no hero card para alternar) ---
+    private lateinit var audioAnalyzer: AudioAnalyzer
+    private var showVisualizerCard = false
+    private var prevFrameEnergy = 0f
+    private var avgFrameEnergy = 0f
+    private val visualizerHandler = Handler(Looper.getMainLooper())
 
     private val positionUpdater = object : Runnable {
         override fun run() {
@@ -121,8 +159,6 @@ class MainActivity : AppCompatActivity() {
                         exoPlayer?.pause()
                         playingSongUri = null
                         setPlayingPosition(RecyclerView.NO_POSITION)
-                        this@MainActivity.binding.playFab.setImageResource(R.drawable.ic_play)
-                        this@MainActivity.binding.playFab.contentDescription = getString(R.string.cd_play)
                         binding.songIcon.announceForAccessibility(getString(R.string.cd_pause))
                     } else {
                         selectedSongUri = song.uri
@@ -244,7 +280,7 @@ class MainActivity : AppCompatActivity() {
         // ItemTouchHelper para reordenação manual e swipe para remover
         itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN,
-            ItemTouchHelper.LEFT
+            ItemTouchHelper.RIGHT
         ) {
             override fun onMove(
                 rv: RecyclerView,
@@ -268,8 +304,6 @@ class MainActivity : AppCompatActivity() {
                     exoPlayer?.pause()
                     playingSongUri = null
                     selectedSongUri = null
-                    binding.playFab.setImageResource(R.drawable.ic_play)
-                    binding.playFab.contentDescription = getString(R.string.cd_play)
                     binding.trackTitle.text = getString(R.string.empty_title)
                     binding.trackStatus.text = getString(R.string.empty_hint)
                     binding.trackTimeCurrent.text = "0:00"
@@ -283,12 +317,6 @@ class MainActivity : AppCompatActivity() {
                     selectedSongUri = null
                 }
                 updateEmptyState()
-                // Feedback ao usuário
-                Toast.makeText(
-                    this@MainActivity,
-                    "\"${removed.title}\" removida da lista",
-                    Toast.LENGTH_SHORT
-                ).show()
             }
 
             override fun isLongPressDragEnabled(): Boolean = sortMode == SortMode.MANUAL
@@ -312,21 +340,21 @@ class MainActivity : AppCompatActivity() {
                         val iconTop = itemView.top + iconMargin
                         val iconBottom = iconTop + it.intrinsicHeight
 
-                        if (dX < 0) {
-                            // Swipe para a esquerda: ícone à direita do item
-                            val iconRight = itemView.right - iconMargin
-                            val iconLeft = iconRight - it.intrinsicWidth
+                        if (dX > 0) {
+                            // Swipe para a direita: ícone à esquerda do item
+                            val iconLeft = itemView.left + iconMargin
+                            val iconRight = iconLeft + it.intrinsicWidth
                             it.setBounds(iconLeft, iconTop, iconRight, iconBottom)
                             it.setTint(ContextCompat.getColor(this@MainActivity, android.R.color.white))
                         }
 
                         // Desenha fundo vermelho
                         val bg = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_swipe_delete)
-                        bg?.setBounds(itemView.right + dX.toInt(), itemView.top, itemView.right, itemView.bottom)
+                        bg?.setBounds(itemView.left, itemView.top, itemView.left + dX.toInt(), itemView.bottom)
                         bg?.draw(c)
 
                         // Desenha ícone (se visível)
-                        if (dX < -(iconMargin + it.intrinsicWidth)) {
+                        if (dX > iconMargin + it.intrinsicWidth) {
                             it.draw(c)
                         }
                     }
@@ -390,14 +418,8 @@ class MainActivity : AppCompatActivity() {
             if (fromUser) applyBpm(value)
         }
 
-        binding.bpmMinusButton.setOnClickListener { view ->
-            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            adjustBpm(-1f)
-        }
-        binding.bpmPlusButton.setOnClickListener { view ->
-            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            adjustBpm(1f)
-        }
+        binding.bpmMinusButton.setOnTouchListener(createBpmHoldTouchListener(-1f))
+        binding.bpmPlusButton.setOnTouchListener(createBpmHoldTouchListener(1f))
         binding.bpmResetButton.setOnClickListener { view ->
             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             val reference = if (detectedBpm > 0f) detectedBpm else binding.bpmSlider.value
@@ -406,29 +428,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.selectButton.setOnClickListener { checkPermissionAndPickFile() }
-        binding.playFab.setOnClickListener { view ->
-            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            val newUri = selectedSongUri
-            val currentUri = playingSongUri
-            when {
-                // Se há uma música selecionada na lista diferente da atual -> toca ela
-                newUri != null && newUri != currentUri -> {
-                    onFilePicked(newUri)
-                }
-                // Se já está tocando -> pausa; se está pausado com player existente -> play
-                exoPlayer != null -> {
-                    if (exoPlayer?.isPlaying == true) {
-                        exoPlayer?.pause()
-                    } else {
-                        exoPlayer?.play()
-                    }
-                }
-                // Sem player e sem nova seleção -> tenta tocar a atual selecionada
-                else -> {
-                    selectedSongUri?.let { onFilePicked(it) }
-                }
-            }
-        }
         binding.repeatButton.setOnClickListener { view ->
             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             toggleRepeat()
@@ -451,6 +450,7 @@ class MainActivity : AppCompatActivity() {
         applyBpm(binding.bpmSlider.value)
         setRepeatVisualState()
         updateLoopAllVisual()
+        setupBpmCardDoubleTap()
 
         // Edge-to-edge: conteúdo ocupa a tela inteira, barras do sistema são transparentes
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -529,6 +529,13 @@ class MainActivity : AppCompatActivity() {
 
         exoPlayer?.setPlaybackSpeed(speed)
 
+        // Atualiza o status embaixo do nome da música com BPM detectado + atual
+        if (detectedBpm > 0f) {
+            binding.trackStatus.text = getString(R.string.status_bpm_detected, detectedBpm, targetBpm)
+        } else {
+            binding.trackStatus.text = getString(R.string.status_bpm_manual, targetBpm)
+        }
+
         val description = when {
             speed > 1.01f -> "mais rápido"
             speed < 0.99f -> "mais lento"
@@ -554,6 +561,99 @@ class MainActivity : AppCompatActivity() {
         pulseScaleY?.cancel()
         pulseScaleX?.start()
         pulseScaleY?.start()
+    }
+
+    // --- Visualizador BPM: duplo toque no hero card alterna o card ---
+    private val bpmCardGestureDetector by lazy {
+        GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                toggleVisualizerCard()
+                return true
+            }
+        })
+    }
+
+    private fun setupBpmCardDoubleTap() {
+        val card = binding.bpmCardContainer
+        card.setOnTouchListener { _, ev ->
+            bpmCardGestureDetector.onTouchEvent(ev)
+            false
+        }
+    }
+
+    private fun toggleVisualizerCard() {
+        showVisualizerCard = !showVisualizerCard
+        binding.bpmCardContainer.visibility = if (showVisualizerCard) View.GONE else View.VISIBLE
+        binding.visualizerCard.visibility = if (showVisualizerCard) View.VISIBLE else View.GONE
+        if (showVisualizerCard) startVisualizer() else stopVisualizer()
+    }
+
+    private fun startVisualizer() {
+        if (!::audioAnalyzer.isInitialized) {
+            audioAnalyzer = AudioAnalyzer(applicationContext)
+        }
+        if (audioAnalyzer.hasPermission()) {
+            audioAnalyzer.start()
+        } else {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1003)
+        }
+        visualizerHandler.removeCallbacks(visualizerUpdater)
+        visualizerHandler.post(visualizerUpdater)
+    }
+
+    private fun stopVisualizer() {
+        if (::audioAnalyzer.isInitialized) audioAnalyzer.stop()
+        visualizerHandler.removeCallbacks(visualizerUpdater)
+    }
+
+    private val visualizerUpdater = object : Runnable {
+        override fun run() {
+            if (!showVisualizerCard) return
+            val samples = if (::audioAnalyzer.isInitialized) audioAnalyzer.drainLatest() else null
+            val isPlaying = exoPlayer?.isPlaying == true
+            val currentBpm = binding.bpmSlider.value
+            var note = "--"
+            var octave = 0
+            var section = ""
+            var confidence = 0f
+
+            if (samples != null) {
+                val pitch = PitchDetector.detect(samples, audioAnalyzer.getSampleRate())
+                if (pitch != null) {
+                    note = pitch.note
+                    octave = pitch.octave
+                    confidence = pitch.confidence
+                }
+                val rms = calculateRms(samples)
+                val result = StructureDetector.detect(rms, prevFrameEnergy, avgFrameEnergy.coerceAtLeast(0.001f))
+                section = result.label
+                prevFrameEnergy = rms
+                avgFrameEnergy = avgFrameEnergy * 0.9f + rms * 0.1f
+            }
+
+            val progressMs = exoPlayer?.currentPosition ?: 0L
+            binding.visualizerView.update(
+                BpmVisualizerView.VisualizerState(
+                    bpm = currentBpm,
+                    note = note,
+                    octave = octave,
+                    section = section,
+                    waveform = samples ?: FloatArray(0),
+                    confidence = confidence,
+                    isPlaying = isPlaying,
+                    progressMs = progressMs
+                )
+            )
+            visualizerHandler.postDelayed(this, 80)
+        }
+    }
+
+    private fun calculateRms(samples: FloatArray): Float {
+        if (samples.isEmpty()) return 0f
+        var sumSq = 0.0
+        for (s in samples) sumSq += s * s
+        return sqrt(sumSq / samples.size).toFloat()
     }
 
     private fun audioPermission(): String =
@@ -592,6 +692,7 @@ class MainActivity : AppCompatActivity() {
         when (requestCode) {
             1001 -> if (granted) filePickerLauncher.launch("audio/*")
             1002 -> if (granted) loadSongs()
+            1003 -> if (granted && showVisualizerCard) startVisualizer()
         }
     }
 
@@ -611,7 +712,6 @@ class MainActivity : AppCompatActivity() {
         binding.trackSlider.isEnabled = false
         binding.trackTimeCurrent.text = "0:00"
         binding.trackTimeTotal.text = "--:--"
-        binding.playFab.isEnabled = false
         detectedBpm = 0f
         currentArtist = null
 
@@ -638,16 +738,15 @@ class MainActivity : AppCompatActivity() {
                 if (uri != playingSongUri) return@withContext
                 if (result != null && result.confidence > 0f) {
                     detectedBpm = result.bpm
-                    binding.trackStatus.text =
-                        getString(R.string.status_bpm_detected, result.bpm)
                     binding.bpmSlider.value = (result.bpm + 0.5f).toInt().coerceIn(40, 200).toFloat()
                     applyBpm(result.bpm)
-                    Snackbar.make(binding.root, getString(R.string.snackbar_bpm_detected, result.bpm), Snackbar.LENGTH_SHORT).show()
+                    // Atualiza status DEPOIS do slider ser ajustado
+                    binding.trackStatus.text =
+                        getString(R.string.status_bpm_detected, result.bpm, binding.bpmSlider.value)
                 } else {
                     detectedBpm = if (binding.bpmSlider.value > 0f) binding.bpmSlider.value else 100f
                     applyBpm(detectedBpm)
                     binding.trackStatus.text = getString(R.string.toast_no_bpm)
-                    Snackbar.make(binding.root, getString(R.string.snackbar_no_bpm), Snackbar.LENGTH_SHORT).show()
                 }
             }
         }
@@ -743,12 +842,6 @@ class MainActivity : AppCompatActivity() {
 
             player.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    binding.playFab.setImageResource(
-                        if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-                    )
-                    binding.playFab.contentDescription =
-                        getString(if (isPlaying) R.string.cd_pause else R.string.cd_play)
-
                     // Garante que o nome da música esteja visível.
                     val currentTitle = binding.trackTitle.text.toString()
                     if (currentTitle.isBlank() || currentTitle == getString(R.string.empty_title)) {
@@ -771,7 +864,6 @@ class MainActivity : AppCompatActivity() {
                         Player.STATE_READY -> {
                             binding.trackSlider.isEnabled = true
                             binding.trackTimeTotal.text = formatTime(player.duration)
-                            binding.playFab.isEnabled = true
                             // Reforça o nome da faixa se ainda estiver vazio.
                             val currentTitle = binding.trackTitle.text.toString()
                             if (currentTitle.isBlank() || currentTitle == getString(R.string.empty_title)) {
@@ -779,9 +871,6 @@ class MainActivity : AppCompatActivity() {
                             }
                             // Aplica a velocidade detectada agora que o player está estável.
                             applyBpm(binding.bpmSlider.value)
-                            // FADe-in the FAB when playback is ready (200ms routine state change)
-                            binding.playFab.alpha = 0f
-                            binding.playFab.animate().alpha(1f).setDuration(200).start()
                             handler.post(positionUpdater)
                         }
                         Player.STATE_ENDED -> {
@@ -793,13 +882,8 @@ class MainActivity : AppCompatActivity() {
                             if (player.repeatMode == Player.REPEAT_MODE_OFF) {
                                 val advanced = playNextInQueue()
                                 if (!advanced) {
-                                    // Pausa o player para que a música não reinicie do
-                                    // começo (playWhenReady=true + seekTo(0) seria
-                                    // indistinguível de "repetir" para o usuário).
                                     player.playWhenReady = false
                                     player.pause()
-                                    binding.playFab.setImageResource(R.drawable.ic_play)
-                                    binding.playFab.contentDescription = getString(R.string.cd_play)
                                     player.seekTo(0L)
                                     binding.trackSlider.value = 0f
                                     binding.trackTimeCurrent.text = "0:00"
@@ -812,8 +896,6 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     Log.e("BPM_PLAY", "PlaybackException: code=${error.errorCode}, name=${error.errorCodeName}, msg=${error.message}")
-                    binding.playFab.setImageResource(R.drawable.ic_play)
-                    binding.playFab.contentDescription = getString(R.string.cd_play)
                     binding.trackStatus.text = getString(R.string.toast_no_bpm)
                     Snackbar.make(binding.root, "Falha ao reproduzir (erro do player): ${error.errorCodeName}", Snackbar.LENGTH_LONG).show()
                 }
@@ -821,9 +903,6 @@ class MainActivity : AppCompatActivity() {
         }
         } catch (e: Exception) {
             Log.e("BPM_PLAY", "startPlayback falhou: ${e.javaClass.simpleName}: ${e.message}")
-            binding.playFab.isEnabled = true
-            binding.playFab.setImageResource(R.drawable.ic_play)
-            binding.playFab.contentDescription = getString(R.string.cd_play)
             binding.trackStatus.text = "Falha ao iniciar player"
             Snackbar.make(binding.root, "Falha ao reproduzir: ${e.javaClass.simpleName}", Snackbar.LENGTH_LONG).show()
         }
@@ -1156,8 +1235,6 @@ class MainActivity : AppCompatActivity() {
                         exoPlayer?.pause()
                         playingSongUri = null
                         selectedSongUri = null
-                        binding.playFab.setImageResource(R.drawable.ic_play)
-                        binding.playFab.contentDescription = getString(R.string.cd_play)
                         binding.trackTitle.text = getString(R.string.empty_title)
                         binding.trackStatus.text = getString(R.string.empty_hint)
                         binding.trackSlider.value = 0f
@@ -1194,6 +1271,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(positionUpdater)
+        visualizerHandler.removeCallbacks(visualizerUpdater)
+        if (::audioAnalyzer.isInitialized) audioAnalyzer.stop()
         exoPlayer?.release()
     }
 }

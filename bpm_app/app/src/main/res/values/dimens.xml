@@ -9,8 +9,8 @@
     <dimen name="hero_icon_inner">6dp</dimen>
     <dimen name="card_padding">4dp</dimen>
     <dimen name="screen_padding_horizontal">16dp</dimen>
-    <dimen name="screen_padding_top">16dp</dimen>
-    <dimen name="card_margin_top">16dp</dimen>
+    <dimen name="screen_padding_top">14dp</dimen>
+    <dimen name="card_margin_top">14dp</dimen>
     <dimen name="bpm_button_size">48dp</dimen>
     <dimen name="bpm_reset_height">40dp</dimen>
     <dimen name="footer_spacer">72dp</dimen>

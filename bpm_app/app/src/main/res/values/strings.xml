@@ -10,7 +10,8 @@
     <string name="status_analyzing">Analisando BPM…</string>
     <string name="toast_no_bpm">BPM não detectado — ajuste manual liberado</string>
     <string name="toast_bpm_detected">BPM detectado: %1$.1f</string>
-    <string name="status_bpm_detected">BPM %1$.1f detectado</string>
+    <string name="status_bpm_detected">BPM %1$.1f detectado · atual %2$.1f</string>
+    <string name="status_bpm_manual">BPM %1$.1f · ajuste manual</string>
     <string name="cd_music_note">Nota musical</string>
     <string name="cd_play">Reproduzir</string>
     <string name="cd_pause">Pausar</string>
