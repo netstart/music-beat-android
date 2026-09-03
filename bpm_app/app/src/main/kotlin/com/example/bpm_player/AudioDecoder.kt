@@ -16,12 +16,12 @@ import java.nio.ByteOrder
  * Decodifica no máximo [maxDurationUs] microssegundos do início do arquivo,
  * o que já é mais que suficiente para a detecção de BPM.
  */
-object AudioDecoder {
+    object AudioDecoder {
 
-    data class PcmData(val samples: FloatArray, val sampleRate: Int)
+        data class PcmData(val samples: FloatArray, val sampleRate: Int)
 
-    private const val TIMEOUT_US = 10_000L
-    private const val DEFAULT_MAX_DURATION_US = 30_000_000L // 30 s
+        private const val TIMEOUT_US = 10_000L
+        private const val DEFAULT_MAX_DURATION_US = 15_000_000L // 15 s — suficiente para BPM
 
     fun decode(
         context: Context,
@@ -60,7 +60,9 @@ object AudioDecoder {
             codec.start()
 
             val info = MediaCodec.BufferInfo()
-            val out = ArrayList<Float>(sampleRate * 20)
+            val maxSamples = ((maxDurationUs / 1_000_000.0) * sampleRate * 2).toInt().coerceAtLeast(1024)
+            val pcm = FloatArray(maxSamples)
+            var pcmCount = 0
             var inputDone = false
             var outputDone = false
 
@@ -111,14 +113,14 @@ object AudioDecoder {
                                     while (buffer.remaining() >= 4 * channels) {
                                         var sum = 0f
                                         repeat(channels) { sum += buffer.float }
-                                        out.add(sum / channels)
+                                        if (pcmCount < pcm.size) pcm[pcmCount++] = sum / channels
                                     }
                                 }
                                 else -> { // ENCODING_PCM_16BIT
                                     while (buffer.remaining() >= 2 * channels) {
                                         var sum = 0
                                         repeat(channels) { sum += buffer.short.toInt() }
-                                        out.add(sum / (32768f * channels))
+                                        if (pcmCount < pcm.size) pcm[pcmCount++] = sum / (32768f * channels)
                                     }
                                 }
                             }
@@ -132,8 +134,8 @@ object AudioDecoder {
                 }
             }
 
-            if (out.isEmpty()) return null
-            return PcmData(out.toFloatArray(), sampleRate)
+            if (pcmCount == 0) return null
+            return PcmData(pcm.copyOf(pcmCount), sampleRate)
         } catch (e: Exception) {
             return null
         } finally {

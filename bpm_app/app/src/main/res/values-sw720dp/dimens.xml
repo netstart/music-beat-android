@@ -4,10 +4,10 @@
     <dimen name="screen_padding_horizontal">28dp</dimen>
     <dimen name="screen_padding_top">28dp</dimen>
     <dimen name="card_padding">14dp</dimen>
-    <dimen name="hero_min_height">75dp</dimen>
-    <dimen name="hero_icon_size">24dp</dimen>
-    <dimen name="hero_icon_inner">12dp</dimen>
-    <dimen name="hero_bpm_text_size">24sp</dimen>
+    <dimen name="hero_min_height">38dp</dimen>
+    <dimen name="hero_icon_size">12dp</dimen>
+    <dimen name="hero_icon_inner">6dp</dimen>
+    <dimen name="hero_bpm_text_size">12sp</dimen>
     <dimen name="song_list_height">280dp</dimen>
     <dimen name="track_title_size">18sp</dimen>
     <dimen name="footer_button_height">48dp</dimen>

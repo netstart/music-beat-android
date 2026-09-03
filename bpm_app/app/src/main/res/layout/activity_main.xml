@@ -26,56 +26,136 @@
             android:paddingTop="@dimen/screen_padding_top"
             android:paddingBottom="12dp">
 
-            <!-- Hero BPM — horizontal: ícone + BPM em linha, 50% menor -->
+            <!-- Hero BPM + controles à direita -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_hero"
-                android:gravity="center"
-                android:minHeight="@dimen/hero_min_height"
                 android:orientation="horizontal"
-                android:padding="@dimen/card_padding">
+                android:gravity="center_vertical">
 
-                <FrameLayout
-                    android:layout_width="@dimen/hero_icon_size"
-                    android:layout_height="@dimen/hero_icon_size"
-                    android:background="@drawable/bg_circle">
+                <!-- Card BPM (esquerda) -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_hero"
+                    android:gravity="center_vertical"
+                    android:minHeight="@dimen/hero_min_height"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="@dimen/card_padding"
+                    android:paddingVertical="3dp">
 
-                    <ImageView
-                        android:layout_width="@dimen/hero_icon_inner"
-                        android:layout_height="@dimen/hero_icon_inner"
-                        android:layout_gravity="center"
-                        android:contentDescription="@string/cd_music_note"
-                        android:src="@drawable/ic_music_note" />
-                </FrameLayout>
+                    <FrameLayout
+                        android:layout_width="@dimen/hero_icon_size"
+                        android:layout_height="@dimen/hero_icon_size"
+                        android:background="@drawable/bg_circle">
 
+                        <ImageView
+                            android:layout_width="@dimen/hero_icon_inner"
+                            android:layout_height="@dimen/hero_icon_inner"
+                            android:layout_gravity="center"
+                            android:contentDescription="@string/cd_music_note"
+                            android:src="@drawable/ic_music_note" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="5dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/bpmValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="sans-serif-medium"
+                            android:fontFeatureSettings="tnum"
+                            android:letterSpacing="-0.02"
+                            android:text="120"
+                            android:textColor="@color/text_primary"
+                            android:textSize="@dimen/hero_bpm_text_size" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="-3dp"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.08"
+                            android:text="@string/bpm_caption"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="9sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Controles à direita -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="7dp"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingStart="6dp">
 
-                    <TextView
-                        android:id="@+id/bpmValue"
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:fontFeatureSettings="tnum"
-                        android:letterSpacing="-0.02"
-                        android:text="120"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/bpmMinusButton"
+                            style="@style/Widget.Material3.Button.IconButton.Filled"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:contentDescription="@string/cd_minus"
+                            app:backgroundTint="@color/bg_icon_button"
+                            app:cornerRadius="18dp"
+                            app:icon="@drawable/ic_minus"
+                            app:iconGravity="textStart"
+                            app:iconSize="14sp"
+                            app:iconTint="@color/text_primary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/bpmPlusButton"
+                            style="@style/Widget.Material3.Button.IconButton.Filled"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:layout_marginStart="4dp"
+                            android:contentDescription="@string/cd_plus"
+                            app:backgroundTint="@color/bg_icon_button"
+                            app:cornerRadius="18dp"
+                            app:icon="@drawable/ic_plus"
+                            app:iconGravity="textStart"
+                            app:iconSize="14sp"
+                            app:iconTint="@color/text_primary" />
+
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/bpmResetButton"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:layout_marginTop="2dp"
+                        android:contentDescription="@string/cd_reset"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:paddingHorizontal="8dp"
+                        android:text="@string/btn_reset"
                         android:textColor="@color/text_primary"
-                        android:textSize="@dimen/hero_bpm_text_size" />
+                        android:textSize="10sp"
+                        app:backgroundTint="@color/bg_icon_button"
+                        app:cornerRadius="12dp" />
 
                     <TextView
+                        android:id="@+id/tempoFactorValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="-4dp"
-                        android:fontFamily="sans-serif-medium"
-                        android:letterSpacing="0.08"
-                        android:text="@string/bpm_caption"
-                        android:textAllCaps="true"
+                        android:layout_marginTop="2dp"
+                        android:fontFeatureSettings="tnum"
+                        android:gravity="center"
+                        android:text="1.00× · tempo original"
                         android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
+                        android:textSize="10sp" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -85,7 +165,7 @@
                 style="@style/BeatSlider"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="6dp"
                 android:stepSize="1"
                 android:value="120"
                 android:valueFrom="40"
@@ -118,69 +198,6 @@
                     android:textColor="@color/text_tertiary"
                     android:textSize="11sp" />
             </LinearLayout>
-
-            <!-- Botões + / – e Reset -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:gravity="center"
-                android:orientation="horizontal">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/bpmMinusButton"
-                    style="@style/Widget.Material3.Button.IconButton.Filled"
-                    android:layout_width="@dimen/bpm_button_size"
-                    android:layout_height="@dimen/bpm_button_size"
-                    android:contentDescription="@string/cd_minus"
-                    app:backgroundTint="@color/bg_icon_button"
-                    app:cornerRadius="22dp"
-                    app:icon="@drawable/ic_minus"
-                    app:iconGravity="textStart"
-                    app:iconSize="18dp"
-                    app:iconTint="@color/text_primary" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/bpmPlusButton"
-                    style="@style/Widget.Material3.Button.IconButton.Filled"
-                    android:layout_width="@dimen/bpm_button_size"
-                    android:layout_height="@dimen/bpm_button_size"
-                    android:layout_marginStart="8dp"
-                    android:contentDescription="@string/cd_plus"
-                    app:backgroundTint="@color/bg_icon_button"
-                    app:cornerRadius="22dp"
-                    app:icon="@drawable/ic_plus"
-                    app:iconGravity="textStart"
-                    app:iconSize="18dp"
-                    app:iconTint="@color/text_primary" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/bpmResetButton"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="@dimen/bpm_reset_height"
-                    android:layout_marginStart="8dp"
-                    android:contentDescription="@string/cd_reset"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:paddingHorizontal="16dp"
-                    android:text="@string/btn_reset"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    app:backgroundTint="@color/bg_icon_button"
-                    app:cornerRadius="18dp" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/tempoFactorValue"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:fontFeatureSettings="tnum"
-                android:gravity="center"
-                android:text="1.00× · tempo original"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
 
             <!-- Card da faixa em reprodução -->
             <LinearLayout
@@ -337,41 +354,52 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/selectButton"
-                style="@style/Widget.Material3.Button.TonalButton"
-                android:layout_width="wrap_content"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="@dimen/footer_button_height"
                 android:layout_height="@dimen/footer_button_height"
                 android:contentDescription="@string/cd_choose"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
-                android:paddingHorizontal="14dp"
-                android:text="@string/btn_choose"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
+                android:padding="0dp"
                 app:backgroundTint="@color/bg_icon_button"
                 app:cornerRadius="20dp"
                 app:icon="@drawable/ic_folder"
                 app:iconGravity="textStart"
-                app:iconSize="16dp"
+                app:iconSize="18dp"
                 app:iconTint="@color/text_secondary" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/repeatButton"
-                style="@style/Widget.Material3.Button.TonalButton"
-                android:layout_width="wrap_content"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="@dimen/footer_button_height"
                 android:layout_height="@dimen/footer_button_height"
                 android:layout_marginStart="8dp"
                 android:contentDescription="@string/cd_repeat"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
-                android:paddingHorizontal="12dp"
-                android:text="@string/label_loop_off_state"
-                android:textColor="@color/text_secondary"
-                android:textSize="13sp"
+                android:padding="0dp"
                 app:backgroundTint="@color/bg_icon_button"
                 app:cornerRadius="20dp"
                 app:icon="@drawable/ic_repeat"
                 app:iconGravity="textStart"
-                app:iconSize="16dp"
+                app:iconSize="18dp"
+                app:iconTint="@color/text_secondary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/loopAllButton"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="@dimen/footer_button_height"
+                android:layout_height="@dimen/footer_button_height"
+                android:layout_marginStart="8dp"
+                android:contentDescription="@string/cd_loop_all"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                app:backgroundTint="@color/bg_icon_button"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_playlist"
+                app:iconGravity="textStart"
+                app:iconSize="18dp"
                 app:iconTint="@color/text_secondary" />
 
             <Space

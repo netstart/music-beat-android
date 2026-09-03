@@ -100,22 +100,28 @@ Write-Host "  Android pronto!"
 # 6. Copia MP3s, instala APK e abre app
 # -------------------------------------------------------------------
 Write-Host ""
-Write-Host "[6/6] Copiando MP3s, instalando e abrindo app..."
+Write-Host "[6/6] Copiando TODAS as músicas, instalando e abrindo app..."
 
-# Copia MP3s
+# Remove todos os MP3s antigos (sincroniza com a quantidade atual de arquivos)
+Write-Host "  Limpando MP3s antigos do emulador..."
+& $adb -s emulator-5554 shell rm -rf /sdcard/Music/*.mp3 2>$null
+
+# Copia TODAS as músicas (seja 1 ou 100)
 $mp3s = Get-ChildItem -Path $MUSIC_SOURCE -Filter "*.mp3" -File -ErrorAction SilentlyContinue
 if ($mp3s.Count -eq 0) {
     Write-Host "  Nenhum MP3 encontrado em $MUSIC_SOURCE"
 } else {
     foreach ($mp3 in $mp3s) {
         $dest = "/sdcard/Music/$($mp3.Name)"
-        & $adb -s emulator-5554 shell rm -f $dest 2>$null
-        $result = & $adb -s emulator-5554 push "$($mp3.FullName)" "/sdcard/Music/" 2>&1
+        $result = & $adb -s emulator-5554 push "$($mp3.FullName)" "/sdcard/Music/" 2>&1 | Out-Null
         Write-Host "  -> $($mp3.Name)"
     }
-    # Sinaliza ao MediaStore
-    & $adb -s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Music/ 2>$null | Out-Null
-    Write-Host "  Total: $(@($mp3s).Count) MP3(s) copiados"
+    # Reindexa todos os arquivos no MediaStore para refletir quantidade real
+    foreach ($mp3 in $mp3s) {
+        $destPath = "file:///sdcard/Music/$($mp3.Name)"
+        & $adb -s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d $destPath 2>$null | Out-Null
+    }
+    Write-Host "  Total: $(@($mp3s).Count) MP3(s) sincronizados"
 }
 
 # Instala APK

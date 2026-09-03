@@ -40,27 +40,36 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 
 ```
 ┌─────────────────────────────────┐
-│  BeatTrack                      │  ← header: nome curto + subtítulo discreto
-│  Tempo real para músicas locais │
+│  ╭──────────────────────────────╮  │
+│  │ (♪)  120                    │  │  ← herói: card BPM à esquerda
+│  │       BPM                   │  │     + controles à direita
+│  ╰──────────────────────────────╯  │
+│  ╭──────────────────────────────╮  │
+│  │  [−] [+]                    │  │  ← controles: - e + na mesma linha
+│  │  [Original]                 │  │  ← abaixo: reset BPM
+│  │  1.00× · tempo original    │  │
+│  ╰──────────────────────────────╯  │
 │                                 │
-│  ╭───────────────────────────╮  │
-│  │        (♪)                │  │  ← herói: cartão com gradiente,
-│  │         120               │  │     número gigante centralizado,
-│  │        BPM                │  │     legenda em caps espaçada
-│  ╰───────────────────────────╯  │
+│   ────●────────────             │  ← slider primário
+│   40                  200       │
 │                                 │
-│   ────●────────────             │  ← slider primário (controle herói)
-│   40                  200       │     min/max nas extremidades
+│  ╭──────────────────────────────╮  │
+│  │ Nome da faixa.mp3            │  │  ← Now Playing card
+│  │ Analisando BPM…             │  │
+│  │ ────●──────────  0:00/2:34 │  │  ← scrubber + tempos
+│  ╰──────────────────────────────╯  │
 │                                 │
-│      [−]   [+]   [Original]     │  ← ajuste fino + reset
-│      1.00× · tempo original     │  ← leitura de estado (pill de texto)
-│                                 │
-│  ╭───────────────────────────╮  │
-│  │ Nome da faixa.mp3         │  │  ← cartão "Now Playing":
-│  │ Analisando BPM…           │  │     título + status,
-│  │ ────●──────────  2:34     │  │     scrubber + tempos,
-│  │ [Escolher música]   (▶)   │  │     ação secundária + play FAB
-│  ╰───────────────────────────╯  │
+│  ─── Rodapé fixo ─────────────  │
+│  ╭──────────────────────────────╮  │
+│  │ Músicas do dispositivo    [≡] │  │  ← header com ordenação
+│  │                              │  │
+│  │ (▶) Título da música       2:34│  │  ← lista: ícone de play/pause
+│  │     Artista                │  │  │     por item, duração
+│  │ (♫) Outra música          3:45│  │
+│  │     Artista                │  │
+│  │ ...                           │  │
+│  │ [📁] [↻] [🔁]        (▶)   │  │  ← rodapé: ícones só, sem texto
+│  ╰──────────────────────────────╯  │
 └─────────────────────────────────┘
 ```
 
@@ -79,16 +88,16 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 | Token | Hex | Uso |
 |---|---|---|
 | `bg/base` | `#0A0F14` | Fundo da tela |
-| `bg/card` | `#141C24` | Cartões (Now Playing, herói) |
+| `bg/card` | `#141C24` | Cartões (Now Playing, herói, rodapé) |
 | `bg/icon-button` | `#1D2833` | Botões tonais, superfícies internas |
 | `accent` | `#2EE6A8` | Acento único: sliders ativos, thumb, FAB, valores destacados |
 | `accent/dim` | `#1FAF7E` | Acento em estados pressionados/containers |
+| `accent/light` | `#142EE6A8` | Fundo de destaque em ~8% alpha (linhas de música tocando) |
 | `on/accent` | `#05221A` | Texto/ícone sobre o acento |
 | `text/primary` | `#F1F6F9` | Títulos, número de BPM |
-| `text/secondary` | `#93A4B3` | Subtítulos, leitura de estado |
-| `text/tertiary` | `#5C6B78` | Metadados, labels min/max |
+| `text/secondary` | `#93A4B3` | Subtítulos, leitura de estado, artista |
+| `text/tertiary` | `#5C6B78` | Metadados, labels min/max, duração |
 | `outline` | `#263340` | Trilhas inativas de slider, divisores |
-| `accent/wash` | `#142EE6A8` | Fundos circulares com acento a ~8% |
 
 **Regras de contraste:** `text/primary` sobre `bg/base` ≥ 15:1; `text/secondary` ≥ 7:1; `accent` é usado em elementos gráficos e números grandes (≥ 3:1 garantido). Nunca use `text/tertiary` em textos abaixo de 12sp.
 
@@ -112,9 +121,9 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 
 `4 · 8 · 12 · 16 · 20 · 24 · 28 · 32 · 48`
 
-- Padding horizontal da tela: **20dp**.
-- Padding interno de cartões: **20–24dp**.
-- Entre seções lógicas: **24–28dp**. Entre elementos relacionados: **8–12dp**.
+- Padding horizontal da tela: **16dp** (base), **28dp** (tablets).
+- Padding interno de cartões: **5–14dp** (base), **14dp** (tablets).
+- Entre seções lógicas: **16–24dp**. Entre elementos relacionados: **8–12dp**.
 - Nunca use valores fora da escala (ex.: 15dp).
 
 ### 3.4 Raio, elevação e superfícies
@@ -132,7 +141,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 ### 3.5 Ícones
 
 - Material Symbols / vetores próprios, viewport 24dp, stroke filled.
-- Tamanhos: 20dp (dentro de botões), 32dp (ilustrativo), 48dp+ (empty state).
+- Tamanhos: 16–18dp (dentro de botões), 32dp (ilustrativo), 48dp+ (empty state).
 - Cor: `text/secondary` por padrão, `accent` quando ilustrativo/ativo, `on/accent` dentro do FAB.
 - Todo ícone clicável tem `contentDescription` (PT-BR) definido em `strings.xml`.
 
@@ -145,7 +154,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 | `motion/emphasized` | 300ms · fast-out-slow-in | Entrada de telas/cartões |
 | `motion/pulse` | 180ms · scale 1.0 → 1.05 → 1.0 | Valor de BPM ao atualizar |
 
-- **Haptics**: `VIRTUAL_KEY` em +/−, reset e play/pause. Nunca em cada tick do slider.
+- **Haptics**: `VIRTUAL_KEY` em +/−, reset, play/pause e itens da lista. Nunca em cada tick do slider.
 - Nada de animações > 300 ms ou loops infinitos (exceto buffering do player).
 
 ---
@@ -160,14 +169,15 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 - Mudanças aplicam **em tempo real** durante o arrasto (`fromUser == true`).
 
 ### 4.2 Botão de ícone (ajuste fino)
-- Estilo `Widget.Material3.Button.IconButton.Filled`, 48×48dp, raio pill.
-- Fundo `bg/icon-button`, ícone 20dp `text/primary`.
+- Estilo `Widget.Material3.Button.IconButton.Filled`, 36×36dp, raio 18dp.
+- Fundo `bg/icon-button`, ícone 14sp `text/primary`.
 - Sempre com `contentDescription` e háptica no clique.
 
-### 4.3 Botão tonal (ação secundária)
-- Estilo `Widget.Material3.Button.TonalButton`, altura 40dp, raio pill, texto 14sp medium.
-- Fundo `bg/icon-button`, texto `text/primary`, ícone opcional.
-- **Um único** botão tonal por linha.
+### 4.3 Botão reset (BPM original)
+- Estilo `Widget.Material3.Button.TonalButton`, altura 32dp, raio 12dp.
+- Fundo `bg/icon-button`, texto 10sp medium `text/primary`.
+- Texto: "Original".
+- Posicionado **abaixo** da linha de botões − e +.
 
 ### 4.4 FAB de play/pause
 - `FloatingActionButton` 56dp, fundo `accent`, ícone `on/accent`.
@@ -176,19 +186,39 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 - Desabilitado até `Player.STATE_READY`.
 
 ### 4.5 Cartão Now Playing
-- Fundo `bg/card`, raio `radius/card`, padding 20dp.
+- Fundo `bg/card`, raio `radius/card`, padding 5dp (base) / 14dp (tablet).
 - Linha 1: título da faixa (`title`, singleLine, ellipsize=middle).
 - Linha 2: status (`meta`, `text/secondary`) — vazio / analisando / BPM detectado.
 - Scrubber: slider 4–6dp, `0..1000`, desabilitado sem mídia; tempos `caption` nas pontas (`0:00` / `--:--` até READY).
-- Rodapé: botão "Escolher música" (tonal + ícone pasta) à esquerda, FAB à direita, espaço elástico entre eles.
 - **Estado vazio**: título "Nenhuma música selecionada", status com instrução; é o mesmo cartão, sem layout alternativo.
 
 ### 4.6 Cartão herói (valor dominante)
-- Fundo `bg/hero` (gradiente + brilho — ver 3.4), raio 28dp, padding 28dp, minHeight 280dp, gravity center.
-- Conteúdo: círculo `accent/wash` 64dp com ícone musical 32dp `accent` → número `display/hero` `text/primary` → label `caption` caps `text/secondary`.
+- Fundo `bg/hero` (gradiente — ver 3.4), raio 28dp, padding 10dp, minHeight 41–150dp (responsivo).
+- Conteúdo: círculo `accent/wash` 16–64dp com ícone musical 8–32dp `accent` → número `display/hero` `text/primary` → label `caption` caps `text/secondary`.
 - O número pulsa (`motion/pulse`) a cada atualização.
+- **Layout horizontal**: card BPM à esquerda + controles (−, +, reset, tempo factor) à direita.
 
-### 4.7 Feedback textual
+### 4.7 Lista de músicas do dispositivo
+- `RecyclerView` com `LinearLayoutManager`.
+- Cada item: ícone (40dp) + título + artista + duração + handle de drag (modo manual).
+- Ícone de item:
+  - Tocando → `ic_pause` em `accent`
+  - Selecionado e pausado → `ic_play` em `text_secondary`
+  - Não selecionado → `ic_music_note` em `text_tertiary`
+- Toque único = selecionar; duplo toque = tocar.
+- Ícone é clicável: se tocando → pausa; se não → inicia reprodução.
+- Modo de ordenação: **Título** (A→Z), **Artista** (A→Z + título), **Manual** (drag com long-press).
+- Handle de drag (`ic_drag`) visível apenas no modo **Manual**.
+- Estado vazio: texto centrado ("Nenhuma música encontrada no dispositivo" ou pedido de permissão).
+- Altura fixa: 140dp (base), 280dp (tablet).
+
+### 4.8 Botões do rodapé (ações)
+- Estilo `Widget.Material3.Button.IconButton.Filled`, 40×40dp, raio 20dp, **sem texto**.
+- Fundo `bg/icon-button`, ícone 18dp `text_secondary` (desligado) / `accent` (ativo).
+- 4 botões: **Localizar** (`ic_folder`), **Repetir música atual** (`ic_repeat`), **Tocar todas** (`ic_playlist`), + **FAB play** à direita.
+- Exclusão mútua: "Repetir" e "Tocar todas" não podem estar ativos ao mesmo tempo.
+
+### 4.9 Feedback textual
 - Toasts curtos para eventos assíncronos (resultado da detecção de BPM).
 - Nenhum diálogo/modal nesta fase — estados são comunicados inline (linha de status).
 
@@ -196,20 +226,26 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 
 ## 5. Padrões de implementação Android
 
-- **Views + ViewBinding** (não Compose nesta fase). Nomes de IDs em `lowerCamelCase` semânticos (`bpmValue`, `trackSlider`).
+- **Views + ViewBinding** (não Compose nesta fase). Nomes de IDs em `lowerCamelCase` semânticos (`bpmValue`, `trackSlider`, `songList`, `selectButton`, `repeatButton`, `loopAllButton`, `playFab`, `bpmMinusButton`, `bpmPlusButton`, `bpmResetButton`).
 - **Theme**: `Theme.Material3.Dark.NoActionBar`. `colorPrimary=accent`, `colorSecondaryContainer=bg/icon-button`, `colorOnSecondaryContainer=text/primary`.
-- **System bars**: status e navigation bar na cor `bg/base`, `windowLightStatusBar=false` — sem edge-to-edge transparente até haver arte de fundo que justifique.
+- **System bars**: edge-to-edge com `WindowCompat.setDecorFitsSystemWindows=false`; padding via `WindowInsetsCompat.Type.systemBars()`.
 - **Strings**: todo texto de usuário em `strings.xml` (PT-BR). Nunca hardcode em layout/código.
 - **Formatação numérica**: `Locale.US` para valores técnicos (BPM, tempos `m:ss`).
-- **Permissões**: fluxo intacto — `READ_MEDIA_AUDIO` (33+) / `READ_EXTERNAL_STORAGE` (≤32), `ActivityResultContracts.GetContent` com `audio/*`.
-- **Player**: Media3 ExoPlayer, streaming completo (sem decodificação total em memória), velocidade via `setPlaybackSpeed` (Sonic time-stretch, pitch preservado).
+- **Permissões**: `READ_MEDIA_AUDIO` (API 33+) / `READ_EXTERNAL_STORAGE` (API < 33), solicitadas no `onCreate`. Fluxo: se concedida → carrega músicas; se negada → mostra lista vazia com instrução.
+- **Player**: Media3 ExoPlayer 1.3.1, streaming completo (sem decodificação total em memória), velocidade via `setPlaybackSpeed` (Sonic time-stretch, pitch preservado).
 - **Estado de BPM**: `detectedBpm = 0` = não detectado; velocidade = alvo/referência (referência = detectado ou valor atual do slider).
+- **Reprodução**:
+  - `REPEAT_MODE_ONE` quando "Repetir música atual" está ativo.
+  - `playNextInQueue()` avança para próxima música; quando `isLoopingAll=true` e na última → volta à primeira.
+  - Exclusão mútua: ativar um desativa o outro.
+- **GestureDetector**: `onDown` retorna `true`; `onSingleTapConfirmed` = selecionar; `onDoubleTap` = tocar. Implementado via `RecyclerView.OnItemTouchListener` com `onInterceptTouchEvent` e `onTouchEvent` (não `SimpleOnItemTouchListener`).
+- **Drag-and-drop**: `ItemTouchHelper.SimpleCallback(UP|DOWN, 0)`, `isLongPressDragEnabled` retorna `true` apenas no modo **Manual**.
 
 ---
 
 ## 6. Acessibilidade
 
-- Alvos de toque ≥ 48×48dp (FAB e botões de ícone têm 56/48dp).
+- Alvos de toque ≥ 48×48dp (FAB e botões de ícone têm 56/40dp).
 - Contraste verificado na tabela 3.1.
 - `contentDescription` em todo ícone interativo; sliders anunciam valor via label flutuante formatado.
 - Textos não dependem só de cor: estado do player é ícone + descrição; detecção de BPM é texto explícito.
@@ -222,8 +258,9 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 1. **Zero travamento de UI**: decodificação/detecção de BPM em thread de fundo; player em streaming; atualização de posição via `Handler` de 500 ms.
 2. **Tempo real de verdade**: BPM aplica durante o arrasto, sem soltar o dedo; +/- em passos de 1 BPM.
 3. **Pitch preservado**: Sonic time-stretch do ExoPlayer — acelera sem "espécie de hamster".
-4. **Estados completos**: vazio, analisando, detectado, não-detectado, tocando, pausado, fim — todos comunicados.
+4. **Estados completos**: vazio, analisando, detectado, não-detectado, tocando, pausado, fim, loop-all — todos comunicados.
 5. **Consistência visual**: nenhum valor fora dos tokens; nenhum texto fora de `strings.xml`.
+6. **Responsividade**: dimens variant para h500dp, h600dp, h800dp, sw720dp.
 
 ---
 
@@ -238,6 +275,8 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 - [ ] Estado vazio tratado (sem tela branca)?
 - [ ] Textos em `strings.xml`; números tabulares onde contam em tempo real?
 - [ ] Rodou o checklist de qualidade da Seção 7 (sem trabalho na main thread)?
+- [ ] RecyclerView com `LinearLayoutManager` configurado?
+- [ ] Exclusão mútua entre "Repetir" e "Tocar todas" implementada?
 
 ---
 
@@ -245,4 +284,5 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 
 | Versão | Data | Mudança |
 |---|---|---|
-| 1.0 | 2026-09-01 | Criação do design system a partir da pesquisa de mercado (Spotify, Apple Music, YouTube Music, Poweramp, Retro Music; Material 3/Material You). Redesign completo da tela principal. |
+| 1.0 | 2026-09-01 | Criação do design system a partir da pesquisa de mercado (Spotify, Apple Music, YouTube Music, Poweramp, Retro Music; Material 3/Material You). |
+| 1.1 | 2026-09-03 | Hero card com controles à direita em layout horizontal. Botão "Original" abaixo de − e +. Botões do rodapé agora só ícone (IconButton.Filled, sem texto). Botão "Tocar todas em sequência" adicionado com exclusão mútua com "Repetir". Lista de músicas do dispositivo com RecyclerView funcional, double-tap para tocar, ícone play/pause por item. Tempo atual/total em tempo real. |

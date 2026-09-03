@@ -29,9 +29,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.bpm_player.databinding.ActivityMainBinding
 import com.example.bpm_player.databinding.ItemSongBinding
+import java.io.File
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
@@ -40,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private var exoPlayer: ExoPlayer? = null
     private var detectedBpm: Float = 0f
     private var isRepeating = false
+    private var isLoopingAll = false
     private var selectedSongUri: Uri? = null
     private var playingSongUri: Uri? = null
     private var currentArtist: String? = null
@@ -70,7 +73,8 @@ class MainActivity : AppCompatActivity() {
         val uri: Uri,
         val title: String,
         val artist: String,
-        val duration: Long
+        val duration: Long,
+        val filePath: String = "" // caminho do arquivo no sistema de arquivos
     )
 
     // --- SongAdapter for RecyclerView ---
@@ -85,12 +89,34 @@ class MainActivity : AppCompatActivity() {
             fun bind(song: Song, position: Int) {
                 binding.songTitle.text = song.title
                 binding.songArtist.text = song.artist
-                binding.songArtist.visibility = if (song.artist.isBlank()) View.GONE else View.VISIBLE
+                binding.songArtist.visibility = if (song.artist.isNotBlank()) View.VISIBLE else View.GONE
+                binding.songPath.text = song.filePath
+                binding.songPath.visibility = if (song.filePath.isNotBlank()) View.VISIBLE else View.GONE
                 binding.songDuration.text = formatTime(song.duration)
                 binding.songDragHandle.visibility = if (showDragHandle) View.VISIBLE else View.GONE
 
                 val isSelected = position == selectedPosition
                 val isPlaying = position == playingPosition
+
+                // Click no ícone de play/pause dentro do item da lista
+                binding.songIcon.setOnClickListener { view ->
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    val main = this@MainActivity
+                    if (isPlaying) {
+                        // Está tocando -> pausa e limpa o estado "playing"
+                        exoPlayer?.pause()
+                        playingSongUri = null
+                        songAdapter.setPlayingPosition(RecyclerView.NO_POSITION)
+                        main.binding.playFab.setImageResource(R.drawable.ic_play)
+                        main.binding.playFab.contentDescription = main.getString(R.string.cd_play)
+                    } else {
+                        // Não está tocando -> toca esta música
+                        selectedSongUri = song.uri
+                        songAdapter.setSelectedPosition(position)
+                        songAdapter.setPlayingPosition(position)
+                        onFilePicked(song.uri)
+                    }
+                }
 
                 // Highlight selected and playing items
                 if (isPlaying) {
@@ -105,7 +131,8 @@ class MainActivity : AppCompatActivity() {
                     binding.songTitle.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
                     binding.songArtist.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
                     binding.songDuration.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
-                    binding.songIcon.setImageResource(R.drawable.ic_music_note)
+                    // Selecionado mas pausado: ícone de play
+                    binding.songIcon.setImageResource(R.drawable.ic_play)
                     binding.songIcon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
                 } else {
                     binding.root.setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -181,6 +208,7 @@ class MainActivity : AppCompatActivity() {
 
         // Setup RecyclerView for song list
         songAdapter = SongAdapter()
+        binding.songList.layoutManager = LinearLayoutManager(this)
         binding.songList.adapter = songAdapter
         binding.songList.setHasFixedSize(true)
 
@@ -206,6 +234,8 @@ class MainActivity : AppCompatActivity() {
 
         // Setup gesture detector for RecyclerView items
         val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                 handleRecyclerViewTap(e, false)
                 return true
@@ -217,10 +247,27 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        binding.songList.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+        // Listener customizado (não SimpleOnItemTouchListener) para garantir
+        // que tanto intercept quanto touch sejam roteados ao GestureDetector.
+        // Sem isso, o double-tap falha porque o GestureDetector não recebe
+        // o ACTION_UP do segundo toque quando onIntercept retorna true.
+        binding.songList.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
             override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-                return gestureDetector.onTouchEvent(e)
+                // Encaminha sempre ao detector; o detector decide o que é tap/double-tap.
+                gestureDetector.onTouchEvent(e)
+                // Não retornamos true: deixamos o RecyclerView tratar long-press/drag
+                // do ItemTouchHelper. Se um double-tap for detectado, o gesto será
+                // curto o suficiente para o drag nunca disparar.
+                return false
             }
+
+            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
+                // Encaminha eventos subsequentes ao detector para que ele possa
+                // identificar o segundo ACTION_DOWN do double-tap.
+                gestureDetector.onTouchEvent(e)
+            }
+
+            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) = Unit
         })
 
         // Botão de ordenação
@@ -274,6 +321,10 @@ class MainActivity : AppCompatActivity() {
             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             toggleRepeat()
         }
+        binding.loopAllButton.setOnClickListener { view ->
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            toggleLoopAll()
+        }
 
         binding.trackSlider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) {
@@ -287,6 +338,7 @@ class MainActivity : AppCompatActivity() {
 
         applyBpm(binding.bpmSlider.value)
         setRepeatVisualState()
+        updateLoopAllVisual()
 
         // Edge-to-edge: conteúdo ocupa a tela inteira, barras do sistema são transparentes
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -315,21 +367,42 @@ class MainActivity : AppCompatActivity() {
 
     private fun toggleRepeat() {
         isRepeating = !isRepeating
-        exoPlayer?.repeatMode =
-            if (isRepeating) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        if (isRepeating) {
+            isLoopingAll = false  // exclusão mútua
+        }
+        exoPlayer?.repeatMode = if (isRepeating) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         setRepeatVisualState()
+        updateLoopAllVisual()
+    }
+
+    private fun toggleLoopAll() {
+        isLoopingAll = !isLoopingAll
+        if (isLoopingAll) {
+            isRepeating = false  // exclusão mútua: desliga repetir música atual
+            exoPlayer?.repeatMode = Player.REPEAT_MODE_OFF
+        }
+        setRepeatVisualState()
+        updateLoopAllVisual()
+    }
+
+    private fun updateLoopAllVisual() {
+        if (isLoopingAll) {
+            binding.loopAllButton.iconTint = ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.accent)
+            )
+        } else {
+            binding.loopAllButton.iconTint = ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.text_secondary)
+            )
+        }
     }
 
     private fun setRepeatVisualState() {
         if (isRepeating) {
-            binding.repeatButton.text = getString(R.string.label_loop_on_state)
-            binding.repeatButton.setTextColor(ContextCompat.getColor(this, R.color.accent))
             binding.repeatButton.iconTint = ColorStateList.valueOf(
                 ContextCompat.getColor(this, R.color.accent)
             )
         } else {
-            binding.repeatButton.text = getString(R.string.label_loop_off_state)
-            binding.repeatButton.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
             binding.repeatButton.iconTint = ColorStateList.valueOf(
                 ContextCompat.getColor(this, R.color.text_secondary)
             )
@@ -354,13 +427,22 @@ class MainActivity : AppCompatActivity() {
             String.format(Locale.US, "%.2f× · %s", speed, description)
     }
 
+    private var pulseScaleX: ObjectAnimator? = null
+    private var pulseScaleY: ObjectAnimator? = null
+
     private fun pulseBpmValue() {
-        val scaleX = ObjectAnimator.ofFloat(binding.bpmValue, "scaleX", 1f, 1.05f, 1f)
-        val scaleY = ObjectAnimator.ofFloat(binding.bpmValue, "scaleY", 1f, 1.05f, 1f)
-        listOf(scaleX, scaleY).forEach { animator ->
-            animator.duration = 180
-            animator.start()
+        if (pulseScaleX == null) {
+            pulseScaleX = ObjectAnimator.ofFloat(binding.bpmValue, "scaleX", 1f, 1.05f, 1f).apply {
+                duration = 180
+            }
+            pulseScaleY = ObjectAnimator.ofFloat(binding.bpmValue, "scaleY", 1f, 1.05f, 1f).apply {
+                duration = 180
+            }
         }
+        pulseScaleX?.cancel()
+        pulseScaleY?.cancel()
+        pulseScaleX?.start()
+        pulseScaleY?.start()
     }
 
     private fun audioPermission(): String =
@@ -434,7 +516,7 @@ class MainActivity : AppCompatActivity() {
         Thread {
             var pcm: AudioDecoder.PcmData? = null
             try {
-                pcm = AudioDecoder.decode(applicationContext, uri, maxDurationUs = 60_000_000L)
+                pcm = AudioDecoder.decode(applicationContext, uri)
             } catch (e: Exception) {
                 // Falha de decoder: não derruba o app, segue normalmente.
             }
@@ -566,10 +648,14 @@ class MainActivity : AppCompatActivity() {
                         playingSongUri?.let { binding.trackTitle.text = resolveTrackTitle(it) }
                     }
 
-                    // Keep the row in the song list in sync with the play/pause state.
+                    // Sincroniza ícone da linha da lista com play/pause
                     val playingIndex = songAdapter.songsList().indexOfFirst { it.uri == playingSongUri }
-                    if (playingIndex >= 0) {
-                        songAdapter.setPlayingPosition(playingIndex)
+                    if (isPlaying) {
+                        if (playingIndex >= 0) songAdapter.setPlayingPosition(playingIndex)
+                    } else {
+                        // Ao pausar, mantém o destaque "selected" (selectedSongUri)
+                        // mas limpa o destaque "playing" — assim o ícone volta a "play".
+                        songAdapter.setPlayingPosition(RecyclerView.NO_POSITION)
                     }
                 }
 
@@ -600,6 +686,11 @@ class MainActivity : AppCompatActivity() {
                             if (player.repeatMode == Player.REPEAT_MODE_OFF) {
                                 val advanced = playNextInQueue()
                                 if (!advanced) {
+                                    // Pausa o player para que a música não reinicie do
+                                    // começo (playWhenReady=true + seekTo(0) seria
+                                    // indistinguível de "repetir" para o usuário).
+                                    player.playWhenReady = false
+                                    player.pause()
                                     binding.playFab.setImageResource(R.drawable.ic_play)
                                     binding.playFab.contentDescription = getString(R.string.cd_play)
                                     player.seekTo(0L)
@@ -700,30 +791,41 @@ class MainActivity : AppCompatActivity() {
     private fun playNextInQueue(): Boolean {
         val current = playingSongUri ?: return false
         val songs = songAdapter.songsList()
+        if (songs.isEmpty()) return false
         val idx = songs.indexOfFirst { it.uri == current }
-        if (idx < 0 || idx >= songs.size - 1) return false
-        val next = songs[idx + 1]
+        if (idx < 0) return false
+
+        // Se "Tocar todas em sequência" estiver ligado, volta ao início
+        // ao chegar na última; caso contrário, para na última.
+        val nextIdx = when {
+            idx < songs.size - 1 -> idx + 1
+            isLoopingAll -> 0
+            else -> return false
+        }
+        val next = songs[nextIdx]
         selectedSongUri = next.uri
-        songAdapter.setSelectedPosition(idx + 1)
-        songAdapter.setPlayingPosition(idx + 1)
+        songAdapter.setSelectedPosition(nextIdx)
+        songAdapter.setPlayingPosition(nextIdx)
         onFilePicked(next.uri)
         return true
     }
 
     private fun loadSongs() {
-        // Carrega a lista do MediaStore em background para não travar a UI.
+        // Varre dispositivo, SD card e unidades de armazenamento em background
         Thread {
             val songs = mutableListOf<Song>()
-            // Sem permissão, MediaStore pode retornar lista vazia — tudo bem, a UI mostra placeholder.
+            val seenPaths = mutableSetOf<String>()
+
+            // 1) MediaStore — indexa todas as unidades de armazenamento
             val projection = arrayOf(
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.TITLE,
                 MediaStore.Audio.Media.ARTIST,
-                MediaStore.Audio.Media.DURATION
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.DATA
             )
             val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
             val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
-
             try {
                 contentResolver.query(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -732,28 +834,63 @@ class MainActivity : AppCompatActivity() {
                     null,
                     sortOrder
                 )?.use { cursor ->
-                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-                    val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-                    val artistColumn = cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)
-                    val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                    val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                    val titleCol = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)
+                    val artistCol = cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)
+                    val durCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                    val dataCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
                     while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idColumn)
-                        val title = cursor.getString(titleColumn) ?: "Sem título"
-                        val artist = if (artistColumn >= 0) cursor.getString(artistColumn) ?: "" else ""
+                        val id = cursor.getLong(idCol)
+                        val title = cursor.getString(titleCol) ?: "Sem título"
+                        val artist = if (artistCol >= 0) cursor.getString(artistCol) ?: "" else ""
                         val cleanArtist = if (artist == "<unknown>") "" else artist
-                        val duration = cursor.getLong(durationColumn)
+                        val duration = cursor.getLong(durCol)
+                        val filePath = if (dataCol >= 0) cursor.getString(dataCol) ?: "" else ""
                         val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id.toString())
-                        songs.add(Song(uri, title, cleanArtist, duration))
+                        if (filePath.isNotBlank()) seenPaths.add(filePath)
+                        songs.add(Song(uri, title, cleanArtist, duration, filePath))
                     }
                 }
-            } catch (_: Exception) {
-                // sem permissão ou erro de I/O — segue com lista vazia
+            } catch (_: Exception) { }
+
+            // 2) Varredura direta em todos os volumes de armazenamento (SD card, USB, etc.)
+            val storageDirs = mutableListOf<File>()
+            try {
+                val ext = android.os.Environment.getExternalStorageDirectory()
+                if (ext != null && ext.exists()) storageDirs.add(ext)
+            } catch (_: Exception) { }
+            // Volumes adicionais via /storage/
+            try {
+                val root = File("/storage")
+                if (root.exists() && root.isDirectory) {
+                    root.listFiles()?.filter { it.isDirectory && it.name != "emulated" }?.flatMap { dir ->
+                        dir.listFiles()?.filter { f -> f.isDirectory && f.name != ".thumbnails" } ?: emptyList()
+                    }?.forEach { sub -> storageDirs.add(sub) }
+                }
+            } catch (_: Exception) { }
+
+            storageDirs.distinct().forEach { dir ->
+                try {
+                    dir.walkTopDown()
+                        .filter { f -> f.isFile && f.extension.equals("mp3", ignoreCase = true) }
+                        .forEach { f ->
+                            if (seenPaths.contains(f.absolutePath)) return@forEach
+                            val path = f.absolutePath
+                            val title = f.nameWithoutExtension
+                            val uri = Uri.fromFile(f)
+                            seenPaths.add(path)
+                            songs.add(Song(uri, title, "", 0L, path))
+                        }
+                } catch (_: Exception) { }
             }
 
             runOnUiThread {
                 val sorted = applySortInPlace(songs.toMutableList())
                 songAdapter.setSongs(sorted)
                 updateEmptyState()
+                if (songs.isNotEmpty()) {
+                    binding.trackStatus.text = "${songs.size} música(s) encontrada(s) — dispositivo + SD card + armazenamento"
+                }
             }
         }.start()
     }
@@ -830,6 +967,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleRecyclerViewTap(e: MotionEvent, isDoubleTap: Boolean) {
         val recyclerView = binding.songList
+        // Usa as coordenadas do evento no RecyclerView diretamente
         val child = recyclerView.findChildViewUnder(e.x, e.y) ?: return
         val position = recyclerView.getChildAdapterPosition(child)
         if (position == RecyclerView.NO_POSITION) return

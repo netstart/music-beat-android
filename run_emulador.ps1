@@ -74,22 +74,28 @@ Write-Host "  Android pronto!"
 # -------------------------------------------------------------------
 # 4. Envia os MP3s para o emulador
 # -------------------------------------------------------------------
-Write-Host "[4/6] Copiando MP3s de $MUSIC_SOURCE para o emulador..."
+# Remove todos os MP3s antigos do emulador (atualiza conforme quantidade atual)
+Write-Host "  Limpando MP3s antigos do emulador..."
+& $adb -s emulator-5554 shell rm -rf /sdcard/Music/*.mp3 2>$null
+
+# Copia TODAS as músicas atuais (seja 1 ou 100)
+Write-Host "[4/6] Copiando TODAS as músicas de $MUSIC_SOURCE para o emulador..."
 $mp3s = Get-ChildItem -Path $MUSIC_SOURCE -Filter "*.mp3" -File -ErrorAction SilentlyContinue
 if ($mp3s.Count -eq 0) {
     Write-Host "  Nenhum MP3 encontrado em $MUSIC_SOURCE"
 } else {
     foreach ($mp3 in $mp3s) {
         $dest = "/sdcard/Music/$($mp3.Name)"
-        # Remove versão antiga (evita erro se já existir)
-        & $adb -s emulator-5554 shell rm -f $dest 2>$null
-        $result = & $adb -s emulator-5554 push "$($mp3.FullName)" "/sdcard/Music/" 2>&1
+        & $adb -s emulator-5554 push "$($mp3.FullName)" "/sdcard/Music/" 2>&1 | Out-Null
         Write-Host "  -> $($mp3.Name) [$(($mp3.Length / 1MB).ToString('F1')) MB]"
     }
-    # Sinaliza ao MediaStore para indexar os novos arquivos
-    & $adb -s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Music/ 2>$null | Out-Null
+    # Reindexa cada arquivo no MediaStore (mais confiável que broadcast no diretório)
+    foreach ($mp3 in $mp3s) {
+        $destPath = "file:///sdcard/Music/$($mp3.Name)"
+        & $adb -s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d $destPath 2>$null | Out-Null
+    }
+    Write-Host "  Total: $(@($mp3s).Count) MP3(s) sincronizados"
 }
-Write-Host "  Total: $(@($mp3s).Count) MP3(s) copiados"
 
 # -------------------------------------------------------------------
 # 5. Instala o APK
