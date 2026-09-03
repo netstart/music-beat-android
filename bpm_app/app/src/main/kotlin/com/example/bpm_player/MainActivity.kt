@@ -244,7 +244,7 @@ class MainActivity : AppCompatActivity() {
         // ItemTouchHelper para reordenação manual e swipe para remover
         itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN,
-            ItemTouchHelper.LEFT
+            ItemTouchHelper.RIGHT
         ) {
             override fun onMove(
                 rv: RecyclerView,
@@ -312,21 +312,21 @@ class MainActivity : AppCompatActivity() {
                         val iconTop = itemView.top + iconMargin
                         val iconBottom = iconTop + it.intrinsicHeight
 
-                        if (dX < 0) {
-                            // Swipe para a esquerda: ícone à direita do item
-                            val iconRight = itemView.right - iconMargin
-                            val iconLeft = iconRight - it.intrinsicWidth
+                        if (dX > 0) {
+                            // Swipe para a direita: ícone à esquerda do item
+                            val iconLeft = itemView.left + iconMargin
+                            val iconRight = iconLeft + it.intrinsicWidth
                             it.setBounds(iconLeft, iconTop, iconRight, iconBottom)
                             it.setTint(ContextCompat.getColor(this@MainActivity, android.R.color.white))
                         }
 
                         // Desenha fundo vermelho
                         val bg = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_swipe_delete)
-                        bg?.setBounds(itemView.right + dX.toInt(), itemView.top, itemView.right, itemView.bottom)
+                        bg?.setBounds(itemView.left, itemView.top, itemView.left + dX.toInt(), itemView.bottom)
                         bg?.draw(c)
 
                         // Desenha ícone (se visível)
-                        if (dX < -(iconMargin + it.intrinsicWidth)) {
+                        if (dX > (iconMargin + it.intrinsicWidth)) {
                             it.draw(c)
                         }
                     }
