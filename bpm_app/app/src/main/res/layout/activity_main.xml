@@ -26,41 +26,16 @@
             android:paddingTop="@dimen/screen_padding_top"
             android:paddingBottom="11dp">
 
-            <!-- Hero BPM + controles à direita (card visível) -->
+            <!-- Controles BPM à direita (card visível) -->
             <LinearLayout
                 android:id="@+id/bpmCardContainer"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="end"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <!-- Card BPM (esquerda) — FrameLayout para empilhar conteúdo normal + visualizador inline -->
-                <FrameLayout
-                    android:layout_width="0dp"
-                    android:layout_height="@dimen/hero_min_height"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_hero"
-                    android:paddingHorizontal="@dimen/card_padding"
-                    android:paddingVertical="3dp">
-
-                    <!-- Conteúdo do hero: visualizador à esquerda, textos à direita -->
-                    <LinearLayout
-                        android:id="@+id/bpmHeroContent"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <!-- Visualizador BPM inline (esquerda) -->
-                        <com.example.bpm_player.BpmVisualizerView
-                            android:id="@+id/bpmVisualizerInline"
-                            android:layout_width="0dp"
-                            android:layout_height="match_parent"
-                            android:layout_weight="1" />
-                    </LinearLayout>
-                </FrameLayout>
-
-                <!-- Controles à direita -->
+                <!-- Controles -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

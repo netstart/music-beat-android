@@ -96,12 +96,6 @@ class MainActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    // --- Visualizador BPM (double-tap no hero card para alternar) ---
-    private lateinit var audioAnalyzer: AudioAnalyzer
-    private var prevFrameEnergy = 0f
-    private var avgFrameEnergy = 0f
-    private val visualizerHandler = Handler(Looper.getMainLooper())
-
     private val positionUpdater = object : Runnable {
         override fun run() {
             exoPlayer?.let { player ->
@@ -463,7 +457,6 @@ class MainActivity : AppCompatActivity() {
         applyBpm(binding.bpmSlider.value)
         setRepeatVisualState()
         updateLoopAllVisual()
-        ensureVisualizerRunning()
 
         // Edge-to-edge: conteúdo ocupa a tela inteira, barras do sistema são transparentes
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -581,70 +574,6 @@ class MainActivity : AppCompatActivity() {
         pulseScaleY?.start()
     }
 
-    // --- Visualizador: inicia automaticamente (PCM do arquivo, sem mic) ---
-    private fun ensureVisualizerRunning() {
-        if (!::audioAnalyzer.isInitialized) {
-            audioAnalyzer = AudioAnalyzer(applicationContext)
-        }
-        val uri = playingSongUri ?: selectedSongUri
-        if (uri != null) {
-            audioAnalyzer.load(uri)
-        }
-        visualizerHandler.removeCallbacks(visualizerUpdater)
-        visualizerHandler.post(visualizerUpdater)
-    }
-
-    private val visualizerUpdater = object : Runnable {
-        override fun run() {
-            val isPlaying = exoPlayer?.isPlaying == true
-            val currentBpm = binding.bpmSlider.value
-            val progressMs = exoPlayer?.currentPosition ?: 0L
-            var note = "--"
-            var octave = 0
-            var section = ""
-            var confidence = 0f
-            var samples: FloatArray? = null
-
-            if (::audioAnalyzer.isInitialized) {
-                samples = audioAnalyzer.consume(progressMs)
-                if (samples != null) {
-                    val pitch = PitchDetector.detect(samples, audioAnalyzer.getSampleRate())
-                    if (pitch != null) {
-                        note = pitch.note
-                        octave = pitch.octave
-                        confidence = pitch.confidence
-                    }
-                    val rms = calculateRms(samples)
-                    val result = StructureDetector.detect(rms, prevFrameEnergy, avgFrameEnergy.coerceAtLeast(0.001f))
-                    section = result.label
-                    prevFrameEnergy = rms
-                    avgFrameEnergy = avgFrameEnergy * 0.9f + rms * 0.1f
-                }
-            }
-
-            binding.bpmVisualizerInline.update(
-                BpmVisualizerView.VisualizerState(
-                    bpm = currentBpm,
-                    note = note,
-                    octave = octave,
-                    section = section,
-                    waveform = samples ?: FloatArray(0),
-                    confidence = confidence,
-                    isPlaying = isPlaying,
-                    progressMs = progressMs
-                )
-            )
-            visualizerHandler.postDelayed(this, 80)
-        }
-    }
-
-    private fun calculateRms(samples: FloatArray): Float {
-        if (samples.isEmpty()) return 0f
-        var sumSq = 0.0
-        for (s in samples) sumSq += s * s
-        return sqrt(sumSq / samples.size).toFloat()
-    }
-
     private fun audioPermission(): String =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_AUDIO
@@ -681,7 +610,7 @@ class MainActivity : AppCompatActivity() {
         when (requestCode) {
             1001 -> if (granted) filePickerLauncher.launch("audio/*")
             1002 -> if (granted) loadSongs()
-            1003 -> ensureVisualizerRunning()
+            1003 -> { /* visualizador removido */ }
         }
     }
 
@@ -1013,10 +942,15 @@ class MainActivity : AppCompatActivity() {
                         val cleanArtist = if (artist == "<unknown>") "" else artist
                         val duration = cursor.getLong(durCol)
                         val filePath = if (dataCol >= 0) cursor.getString(dataCol) ?: "" else ""
-                        val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id.toString())
-                        if (filePath.isNotBlank()) seenPaths.add(filePath)
-                        songs.add(Song(uri, title, cleanArtist, duration, filePath))
-                        Log.d("BPM_MUSIC", "MediaStore: $title | $filePath")
+                        if (filePath.isNotBlank() && isAudioFromMessagingApp(filePath)) {
+                            // Ignora áudio de apps de mensagem via MediaStore
+                            Log.d("BPM_MUSIC", "Ignorado (messaging): $title | $filePath")
+                        } else {
+                            val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id.toString())
+                            if (filePath.isNotBlank()) seenPaths.add(filePath)
+                            songs.add(Song(uri, title, cleanArtist, duration, filePath))
+                            Log.d("BPM_MUSIC", "MediaStore: $title | $filePath")
+                        }
                     }
                     Log.i("BPM_MUSIC", "MediaStore retornou ${songs.size} músicas")
                 }
@@ -1045,9 +979,7 @@ class MainActivity : AppCompatActivity() {
                         .maxDepth(6)
                         .filter { f ->
                             f.isFile &&
-                            !f.extension.equals("opus", ignoreCase = true) &&
-                            !f.absolutePath.contains("/Android/media/com.whatsapp/", ignoreCase = true) &&
-                            f.extension.equals("mp3", ignoreCase = true)
+                            !isIgnoredAudioFile(f.absolutePath)
                         }
                         .forEach audioEach@{ audioFile ->
                             if (seenPaths.contains(audioFile.absolutePath)) return@audioEach
@@ -1076,6 +1008,25 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /** Aplica o modo de ordenação atual sobre uma cópia mutável da lista. */
+    /** Filtra áudio de apps de mensagem (WhatsApp, Telegram, etc.) por caminho. */
+    private fun isAudioFromMessagingApp(filePath: String): Boolean {
+        val path = filePath.lowercase()
+        return path.contains("/whatsapp/") ||
+               path.contains("/telegram/") ||
+               path.contains("/signal/") ||
+               path.contains("/messenger/") ||
+               path.contains("/discord/")
+    }
+
+    /** Retorna true se o arquivo deve ser ignorado (não é música do usuário). */
+    private fun isIgnoredAudioFile(filePath: String): Boolean {
+        if (isAudioFromMessagingApp(filePath)) return true
+        val ext = filePath.substringAfterLast('.', "").lowercase()
+        if (ext == "opus") return true
+        return false
     }
 
     /** Aplica o modo de ordenação atual sobre uma cópia mutável da lista. */
@@ -1263,8 +1214,6 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(positionUpdater)
-        visualizerHandler.removeCallbacks(visualizerUpdater)
-        if (::audioAnalyzer.isInitialized) audioAnalyzer.stop()
         exoPlayer?.release()
     }
 }
