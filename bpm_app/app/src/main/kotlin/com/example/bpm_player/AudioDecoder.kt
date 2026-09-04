@@ -73,13 +73,7 @@ import java.nio.ByteOrder
                     if (inIndex >= 0) {
                         val buffer = codec.getInputBuffer(inIndex)!!
                         val size = extractor.readSampleData(buffer, 0)
-                        if (size < 0) {
-                            codec.queueInputBuffer(
-                                inIndex, 0, 0, 0,
-                                MediaCodec.BUFFER_FLAG_END_OF_STREAM
-                            )
-                            inputDone = true
-                        } else if (!decodeAll && extractor.sampleTime > maxDurationUs) {
+                        if (size < 0 || (!decodeAll && extractor.sampleTime > maxDurationUs)) {
                             codec.queueInputBuffer(
                                 inIndex, 0, 0, 0,
                                 MediaCodec.BUFFER_FLAG_END_OF_STREAM

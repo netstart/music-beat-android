@@ -98,7 +98,6 @@ class MainActivity : AppCompatActivity() {
 
     // --- Visualizador BPM (double-tap no hero card para alternar) ---
     private lateinit var audioAnalyzer: AudioAnalyzer
-    private var showVisualizerCard = false
     private var prevFrameEnergy = 0f
     private var avgFrameEnergy = 0f
     private val visualizerHandler = Handler(Looper.getMainLooper())
@@ -562,11 +561,6 @@ class MainActivity : AppCompatActivity() {
         }
         binding.tempoFactorValue.text =
             String.format(Locale.US, "%.2f× · %s", speed, description)
-
-        // Atualiza o status com BPM detectado + BPM atual
-        if (detectedBpm > 0f) {
-            binding.trackStatus.text = getString(R.string.status_bpm_detected, detectedBpm, targetBpm)
-        }
     }
 
     private var pulseScaleX: ObjectAnimator? = null
@@ -1064,7 +1058,6 @@ class MainActivity : AppCompatActivity() {
                     dir.walkTopDown()
                         .maxDepth(6)
                         .filter { it.isFile && it.extension.equals("mp3", ignoreCase = true) }
-                        .toList()
                         .forEach { f ->
                             if (seenPaths.contains(f.absolutePath)) return@forEach
                             val path = f.absolutePath
