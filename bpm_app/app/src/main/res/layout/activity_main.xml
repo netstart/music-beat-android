@@ -24,69 +24,63 @@
             android:orientation="vertical"
             android:paddingHorizontal="@dimen/screen_padding_horizontal"
             android:paddingTop="@dimen/screen_padding_top"
-            android:paddingBottom="12dp">
+            android:paddingBottom="11dp">
 
-            <!-- Hero BPM + controles à direita -->
+            <!-- Hero BPM + controles à direita (card visível) -->
             <LinearLayout
+                android:id="@+id/bpmCardContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <!-- Card BPM (esquerda) -->
-                <LinearLayout
+                <!-- Card BPM (esquerda) — FrameLayout para empilhar conteúdo normal + visualizador inline -->
+                <FrameLayout
                     android:layout_width="0dp"
-                    android:layout_height="match_parent"
+                    android:layout_height="@dimen/hero_min_height"
                     android:layout_weight="1"
                     android:background="@drawable/bg_hero"
-                    android:gravity="center_vertical"
-                    android:minHeight="@dimen/hero_min_height"
-                    android:orientation="horizontal"
                     android:paddingHorizontal="@dimen/card_padding"
                     android:paddingVertical="3dp">
 
-                    <FrameLayout
-                        android:layout_width="@dimen/hero_icon_size"
-                        android:layout_height="@dimen/hero_icon_size"
-                        android:background="@drawable/bg_circle">
-
-                        <ImageView
-                            android:layout_width="@dimen/hero_icon_inner"
-                            android:layout_height="@dimen/hero_icon_inner"
-                            android:layout_gravity="center"
-                            android:contentDescription="@string/cd_music_note"
-                            android:src="@drawable/ic_music_note" />
-                    </FrameLayout>
-
+                    <!-- Conteúdo padrão: nota + oitava -->
                     <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="5dp"
+                        android:id="@+id/bpmHeroContent"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center_vertical"
                         android:orientation="vertical">
 
                         <TextView
-                            android:id="@+id/bpmValue"
+                            android:id="@+id/bpmNoteValue"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:fontFamily="sans-serif-medium"
-                            android:fontFeatureSettings="tnum"
                             android:letterSpacing="-0.02"
-                            android:text="120"
                             android:textColor="@color/text_primary"
-                            android:textSize="@dimen/hero_bpm_text_size" />
+                            android:textSize="@dimen/hero_bpm_text_size"
+                            android:textStyle="bold"
+                            tools:text="C#4" />
 
                         <TextView
+                            android:id="@+id/bpmOctaveValue"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="-3dp"
                             android:fontFamily="sans-serif-medium"
                             android:letterSpacing="0.08"
-                            android:text="@string/bpm_caption"
                             android:textAllCaps="true"
                             android:textColor="@color/text_secondary"
-                            android:textSize="9sp" />
+                            android:textSize="10sp"
+                            tools:text="Intro" />
                     </LinearLayout>
-                </LinearLayout>
+
+                    <!-- Visualizador inline (substitui o conteúdo quando ativo) -->
+                    <com.example.bpm_player.BpmVisualizerView
+                        android:id="@+id/bpmVisualizerInline"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:visibility="gone" />
+                </FrameLayout>
 
                 <!-- Controles à direita -->
                 <LinearLayout
@@ -165,7 +159,7 @@
                 style="@style/BeatSlider"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="5dp"
                 android:contentDescription="@string/cd_bpm_slider"
                 android:stepSize="1"
                 android:value="120"
@@ -400,26 +394,11 @@
                 android:padding="0dp"
                 app:backgroundTint="@color/bg_icon_button"
                 app:cornerRadius="20dp"
-                app:icon="@drawable/ic_playlist"
+                app:icon="@drawable/ic_loop_all"
                 app:iconGravity="textStart"
                 app:iconSize="18dp"
                 app:iconTint="@color/text_secondary" />
 
-            <Space
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
-
-            <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/playFab"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:contentDescription="@string/cd_play"
-                android:enabled="false"
-                android:src="@drawable/ic_play"
-                app:backgroundTint="@color/accent"
-                app:elevation="0dp"
-                app:tint="@color/on_accent" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>
