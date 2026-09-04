@@ -84,15 +84,6 @@ class BpmVisualizerView @JvmOverloads constructor(
 
     fun update(state: VisualizerState) {
         this.state = state
-        // Ajusta duração do pulso pelo BPM
-        if (state.bpm > 0) {
-            val newDuration = (60_000 / maxOf(state.bpm, 40f)).toLong()
-            if (pulseAnimator.duration != newDuration) {
-                pulseAnimator.duration = newDuration
-            }
-            if (!pulseAnimator.isRunning && state.isPlaying) pulseAnimator.start()
-            if (!state.isPlaying && pulseAnimator.isRunning) pulseAnimator.pause()
-        }
         invalidate()
     }
 
@@ -109,42 +100,25 @@ class BpmVisualizerView @JvmOverloads constructor(
         val corner = minDim * 0.06f
         canvas.drawRoundRect(0f, 0f, w, h, corner, corner, bgPaint)
 
-        // Círculo pulsante central (batida)
+        // Onda / waveform no centro
         val baseRadius = minDim * 0.28f
-        val pulseRadius = baseRadius * (1f + pulsePhase * 0.35f)
-        val alpha = ((1f - pulsePhase) * 220 + 30).toInt()
-        pulsePaint.alpha = alpha.coerceIn(30, 255)
-        canvas.drawCircle(cx, cy, pulseRadius, pulsePaint)
-
-        // Onda / waveform no centro (onda senoidal simulada se sem amostras)
         drawWaveform(canvas, cx, cy, baseRadius * 0.65f)
 
-        // BPM grande central
-        textPaintBig.textSize = minDim * 0.22f
-        val bpmText = "${state.bpm.toInt()}"
-        val bpmY = cy + textPaintBig.textSize * 0.25f
-        canvas.drawText(bpmText, cx, bpmY, textPaintBig)
+        // BPM grande central (removido — só waveform)
+        // textPaintBig.textSize = minDim * 0.22f
+        // val bpmText = "${state.bpm.toInt()}"
+        // val bpmY = cy + textPaintBig.textSize * 0.25f
+        // canvas.drawText(bpmText, cx, bpmY, textPaintBig)
 
-        // Nota + Oitava (abaixo do BPM)
-        textPaintSmall.textSize = minDim * 0.10f
-        val noteText = if (state.note != "--") "${state.note}${state.octave}" else "--"
-        canvas.drawText(noteText, cx, bpmY + minDim * 0.18f, textPaintSmall)
+        // Nota + Oitava (removido)
+        // textPaintSmall.textSize = minDim * 0.10f
+        // val noteText = if (state.note != "--") "${state.note}${state.octave}" else "--"
+        // canvas.drawText(noteText, cx, bpmY + minDim * 0.18f, textPaintSmall)
 
-        // Seção musical (acima do BPM)
-        if (state.section.isNotBlank()) {
-            textPaintSmall.textSize = minDim * 0.08f
-            val sectionText = state.section
-            canvas.drawText(sectionText, cx, cy - baseRadius * 0.55f, textPaintSmall)
-        }
+        // Seção musical (removido)
+        // if (state.section.isNotBlank()) { ... }
 
-        // Confiança / status (base do card)
-        val statusText = when {
-            state.isPlaying -> "▶ Tocando • ${formatMs(state.progressMs)}"
-            state.bpm > 0 -> "BPM detectado • ${state.confidence.toInt()}% conf"
-            else -> "⏸ Aguardando..."
-        }
-        textPaintSmall.textSize = minDim * 0.06f
-        canvas.drawText(statusText, cx, h - minDim * 0.08f, textPaintSmall)
+        // Status (removido)
     }
 
     private fun drawWaveform(canvas: Canvas, cx: Float, cy: Float, radius: Float) {

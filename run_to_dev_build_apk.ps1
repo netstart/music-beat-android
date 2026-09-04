@@ -58,12 +58,9 @@ $gradleArgs = @(
     "--daemon"
     "--parallel"
     "--configure-on-demand"
-    "-PminifyEnabled=false"
     "-x", "lint"
     "-x", "test"
     "-x", "check"
-    "-x", "minifyDebugWithR8"
-    "-x", "minifyReleaseWithR8"
     "-p", $PROJECT
     "app:assembleDebug"
 )

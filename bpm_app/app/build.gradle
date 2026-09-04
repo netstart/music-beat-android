@@ -28,16 +28,30 @@ android {
         jvmTarget = '1.8'
     }
 
+    signingConfigs {
+        release {
+            // Usa o debug keystore (gerado automaticamente pelo Android SDK)
+            // Ideal para instalação USB de teste rápido. Para publicar na Play Store,
+            // crie um keystore próprio e configure via ~/.gradle/gradle.properties.
+            def userHome = System.getenv("ANDROID_USER_HOME") ?: System.getProperty("user.home")
+            storeFile file("$userHome/.android/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
     buildTypes {
         debug {
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Sem minify/shrink no debug — evita erros de mapping.txt e builds mais rápidos
+            minifyEnabled false
+            shrinkResources false
         }
         release {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }

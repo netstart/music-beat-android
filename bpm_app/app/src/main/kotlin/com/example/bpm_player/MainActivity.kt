@@ -622,16 +622,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            val beatsPerBar = 4
-            val beatDisplay = if (currentBpm > 1f) {
-                val totalBeats = (progressMs / 1000.0) * (currentBpm / 60.0)
-                val currentBeatInBar = (totalBeats.toLong() % beatsPerBar).toInt() + 1
-                val currentBar = (totalBeats / beatsPerBar).toLong() + 1
-                "T $currentBar.$currentBeatInBar/$beatsPerBar"
-            } else {
-                "T 1.1/$beatsPerBar"
-            }
-
             binding.bpmVisualizerInline.update(
                 BpmVisualizerView.VisualizerState(
                     bpm = currentBpm,
@@ -644,10 +634,6 @@ class MainActivity : AppCompatActivity() {
                     progressMs = progressMs
                 )
             )
-            binding.bpmNoteValue.text = if (note != "--") "$note$octave" else "--"
-            binding.bpmOctaveValue.text = if (octave > 0) "OITAVA $octave" else ""
-            binding.bpmBeatValue.text = beatDisplay
-            binding.bpmSectionValue.text = section.ifBlank { "♪" }
             visualizerHandler.postDelayed(this, 80)
         }
     }
@@ -1004,7 +990,7 @@ class MainActivity : AppCompatActivity() {
                 MediaStore.Audio.Media.DURATION,
                 MediaStore.Audio.Media.DATA
             )
-            val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+            val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.MIME_TYPE} != 'audio/opus'"
             val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
             try {
                 Log.i("BPM_MUSIC", "Iniciando query MediaStore: $selection")
@@ -1057,12 +1043,17 @@ class MainActivity : AppCompatActivity() {
                     val countBefore = songs.size
                     dir.walkTopDown()
                         .maxDepth(6)
-                        .filter { it.isFile && it.extension.equals("mp3", ignoreCase = true) }
-                        .forEach { f ->
-                            if (seenPaths.contains(f.absolutePath)) return@forEach
-                            val path = f.absolutePath
-                            val title = f.nameWithoutExtension
-                            val uri = Uri.fromFile(f)
+                        .filter { f ->
+                            f.isFile &&
+                            !f.extension.equals("opus", ignoreCase = true) &&
+                            !f.absolutePath.contains("/Android/media/com.whatsapp/", ignoreCase = true) &&
+                            f.extension.equals("mp3", ignoreCase = true)
+                        }
+                        .forEach audioEach@{ audioFile ->
+                            if (seenPaths.contains(audioFile.absolutePath)) return@audioEach
+                            val path = audioFile.absolutePath
+                            val title = audioFile.nameWithoutExtension
+                            val uri = Uri.fromFile(audioFile)
                             seenPaths.add(path)
                             songs.add(Song(uri, title, "", 0L, path))
                         }
@@ -1245,9 +1236,8 @@ class MainActivity : AppCompatActivity() {
                         binding.trackTimeTotal.text = "--:--"
                         handler.removeCallbacks(positionUpdater)
                     }
-                    android.widget.Toast.makeText(this@MainActivity, R.string.toast_song_deleted, android.widget.Toast.LENGTH_SHORT).show()
                 } else {
-                    android.widget.Toast.makeText(this@MainActivity, R.string.toast_delete_failed, android.widget.Toast.LENGTH_SHORT).show()
+                    // Silenciado: exclusão sem toast
                 }
             }
         }

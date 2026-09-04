@@ -11,8 +11,13 @@
 #>
 
 # ============================= CONFIGURAÇÕES =============================
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$ApkPath = "C:\src\music-beat\bpm_player-release.apk"
+)
+
 $SDK           = "C:\Android\Sdk"
-$APK_PATH      = "C:\src\music-beat\bpm_app\app\build\outputs\apk\debug\app-debug.apk"
+$APK_PATH      = $ApkPath
 $PACKAGE_NAME  = "com.example.bpm_player"
 $LAUNCHER      = "$PACKAGE_NAME/.MainActivity"
 # ========================================================================
@@ -66,23 +71,8 @@ Write-Host "  Dispositivo: $usbDevice"
 # 3. Build (se necessário)
 Write-Host "[3/5] Verificando APK..."
 if (-not (Test-Path $APK_PATH)) {
-    Write-Host "  APK não encontrado. Compilando..."
-    Push-Location bpm_app
-    if (-not (Test-Path .\gradlew.bat)) {
-        Write-Host "ERRO: gradlew.bat não encontrado em bpm_app"
-        Pop-Location
-        exit 1
-    }
-    & .\gradlew.bat assembleDebug 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "ERRO: build falhou"
-        Pop-Location
-        exit 1
-    }
-    Pop-Location
-}
-if (-not (Test-Path $APK_PATH)) {
-    Write-Host "ERRO: APK ainda não existe em $APK_PATH após o build."
+    Write-Host "ERRO: APK não encontrado em $APK_PATH"
+    Write-Host "  Execute o build correspondente antes (run_to_prod_build_apk.ps1 ou run_to_dev_build_apk.ps1)"
     exit 1
 }
 Write-Host "  APK: $APK_PATH"
