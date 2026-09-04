@@ -1,117 +1,89 @@
 package com.example.bpm_player
 
-import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
-import android.content.pm.PackageManager
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
+import android.net.Uri
 import android.util.Log
-import androidx.core.content.ContextCompat
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.concurrent.thread
 
-/**
- * Captura PCM em tempo real do áudio que está tocando no app.
- * Usa AudioRecord com fonte MIC para capturar o som ambiente.
- * Em ambiente silencioso (ou com fone de ouvido) o PCM reflete a música.
- *
- * Limitação: ruído ambiente pode interferir na análise.
- * Alternativa: capturar via ExoPlayer AudioProcessor (mais complexo).
- */
 class AudioAnalyzer(private val context: Context) {
+    private val frameQueue = ConcurrentLinkedQueue<FloatArray>()
+    private val lock = Any()
 
-    private val sampleQueue = ConcurrentLinkedQueue<FloatArray>()
-    private val sampleRate = 44100
-    private val channelConfig = AudioFormat.CHANNEL_IN_MONO
-    private val audioFormat = AudioFormat.ENCODING_PCM_FLOAT
+    @Volatile private var pcm: FloatArray = FloatArray(0)
+    @Volatile private var sampleRate: Int = 44100
+    @Volatile private var totalDurationUs: Long = 0L
+    @Volatile private var decodeInProgress: Boolean = false
+    @Volatile private var currentUri: Uri? = null
 
-    @Volatile private var isCapturing = false
-    private var audioRecord: AudioRecord? = null
-    private var captureThread: Thread? = null
+    private var decodeThread: Thread? = null
+    private val windowSamples = 1024
 
-    fun hasPermission(): Boolean =
-        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-
-    @SuppressLint("MissingPermission")
-    fun start() {
-        if (isCapturing) return
-        if (!hasPermission()) {
-            Log.w("BPM_AUDIO", "RECORD_AUDIO não concedido — visualizador desabilitado")
-            return
+    fun load(uri: Uri) {
+        synchronized(lock) {
+            if (currentUri == uri && pcm.isNotEmpty()) return
+            currentUri = uri
+            pcm = FloatArray(0)
+            sampleRate = 44100
+            totalDurationUs = 0L
+            frameQueue.clear()
+            decodeInProgress = true
         }
-
-        try {
-            val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-                .coerceAtLeast(4096)
-
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                sampleRate,
-                channelConfig,
-                audioFormat,
-                bufferSize * 2
-            )
-
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e("BPM_AUDIO", "AudioRecord não inicializou")
-                audioRecord?.release()
-                audioRecord = null
-                return
-            }
-
-            audioRecord?.startRecording()
-            isCapturing = true
-
-            captureThread = thread(name = "AudioAnalyzer", isDaemon = true) {
-                val chunk = FloatArray(2048)
-                while (isCapturing) {
-                    val read = audioRecord?.read(chunk, 0, chunk.size, AudioRecord.READ_BLOCKING) ?: 0
-                    if (read > 0) {
-                        val copy = FloatArray(read)
-                        System.arraycopy(chunk, 0, copy, 0, read)
-                        sampleQueue.offer(copy)
+        decodeThread?.interrupt()
+        decodeThread = thread(name = "AudioDecoder-File", isDaemon = true) {
+            try {
+                val pcmData = AudioDecoder.decode(context, uri, maxDurationUs = 0L)
+                    ?: run {
+                        Log.w("BPM_AUDIO", "Decode vazio para $uri")
+                        decodeInProgress = false
+                        return@thread
                     }
+                synchronized(lock) {
+                    if (currentUri != uri) return@thread
+                    pcm = pcmData.samples
+                    sampleRate = pcmData.sampleRate
+                    totalDurationUs = (pcm.size.toLong() * 1_000_000L) / pcmData.sampleRate
                 }
+                Log.i("BPM_AUDIO", "Decode ok: ${pcm.size} amostras, ${pcmData.sampleRate} Hz")
+            } catch (e: Exception) {
+                Log.e("BPM_AUDIO", "Falha decode: ${e.javaClass.simpleName}: ${e.message}")
+            } finally {
+                decodeInProgress = false
             }
-            Log.i("BPM_AUDIO", "Captura iniciada: $sampleRate Hz, MONO, FLOAT")
-        } catch (e: Exception) {
-            Log.e("BPM_AUDIO", "Falha ao iniciar AudioRecord: ${e.message}")
-            stop()
+        }
+    }
+
+    fun consume(positionMs: Long, windowMs: Int = 23): FloatArray? {
+        val data = pcm
+        if (data.isEmpty()) return null
+        val sr = sampleRate
+        val center = (positionMs * sr / 1000L).toInt()
+        val halfWin = (windowMs * sr / 2000).toInt().coerceAtLeast(64)
+        val start = (center - halfWin).coerceAtLeast(0)
+        val end = (center + halfWin).coerceAtMost(data.size)
+        if (end <= start) return null
+        val out = FloatArray(end - start)
+        System.arraycopy(data, start, out, 0, out.size)
+        return out
+    }
+
+    fun drainLatest(): FloatArray? = frameQueue.poll()
+    fun getSampleRate(): Int = sampleRate
+    fun getDurationUs(): Long = totalDurationUs
+    fun isReady(): Boolean = pcm.isNotEmpty() && !decodeInProgress
+
+    fun reset() {
+        synchronized(lock) {
+            pcm = FloatArray(0)
+            currentUri = null
+            frameQueue.clear()
         }
     }
 
     fun stop() {
-        if (!isCapturing) return
-        isCapturing = false
-        try {
-            audioRecord?.stop()
-        } catch (_: Exception) { }
-        audioRecord?.release()
-        audioRecord = null
-        captureThread = null
-        sampleQueue.clear()
-        Log.i("BPM_AUDIO", "Captura parada")
+        decodeThread?.interrupt()
+        decodeThread = null
+        reset()
+        decodeInProgress = false
     }
-
-    /**
-     * Consome o frame PCM mais recente (não-bloqueante).
-     * Retorna null se não houver nada novo.
-     */
-    fun consume(): FloatArray? = sampleQueue.poll()
-
-    /**
-     * Descarta frames antigos e mantém só o mais recente.
-     */
-    fun drainLatest(): FloatArray? {
-        var latest: FloatArray? = null
-        while (true) {
-            val next = sampleQueue.poll() ?: break
-            latest = next
-        }
-        return latest
-    }
-
-    fun getSampleRate(): Int = sampleRate
 }

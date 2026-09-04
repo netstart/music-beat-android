@@ -60,11 +60,11 @@ import java.nio.ByteOrder
             codec.start()
 
             val info = MediaCodec.BufferInfo()
-            val maxSamples = ((maxDurationUs / 1_000_000.0) * sampleRate * 2).toInt().coerceAtLeast(1024)
-            val pcm = FloatArray(maxSamples)
+            val pcmBuilder = ArrayList<Float>()
             var pcmCount = 0
             var inputDone = false
             var outputDone = false
+            val decodeAll = maxDurationUs <= 0L
 
             while (!outputDone) {
                 // Alimenta o decoder com dados comprimidos
@@ -73,7 +73,13 @@ import java.nio.ByteOrder
                     if (inIndex >= 0) {
                         val buffer = codec.getInputBuffer(inIndex)!!
                         val size = extractor.readSampleData(buffer, 0)
-                        if (size < 0 || extractor.sampleTime > maxDurationUs) {
+                        if (size < 0) {
+                            codec.queueInputBuffer(
+                                inIndex, 0, 0, 0,
+                                MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                            )
+                            inputDone = true
+                        } else if (!decodeAll && extractor.sampleTime > maxDurationUs) {
                             codec.queueInputBuffer(
                                 inIndex, 0, 0, 0,
                                 MediaCodec.BUFFER_FLAG_END_OF_STREAM
@@ -113,14 +119,16 @@ import java.nio.ByteOrder
                                     while (buffer.remaining() >= 4 * channels) {
                                         var sum = 0f
                                         repeat(channels) { sum += buffer.float }
-                                        if (pcmCount < pcm.size) pcm[pcmCount++] = sum / channels
+                                        pcmBuilder.add(sum / channels)
+                                        pcmCount++
                                     }
                                 }
                                 else -> { // ENCODING_PCM_16BIT
                                     while (buffer.remaining() >= 2 * channels) {
                                         var sum = 0
                                         repeat(channels) { sum += buffer.short.toInt() }
-                                        if (pcmCount < pcm.size) pcm[pcmCount++] = sum / (32768f * channels)
+                                        pcmBuilder.add(sum / (32768f * channels))
+                                        pcmCount++
                                     }
                                 }
                             }
@@ -135,7 +143,7 @@ import java.nio.ByteOrder
             }
 
             if (pcmCount == 0) return null
-            return PcmData(pcm.copyOf(pcmCount), sampleRate)
+            return PcmData(pcmBuilder.toFloatArray(), sampleRate)
         } catch (e: Exception) {
             android.util.Log.e("BPM_DECODE", "decode failed: ${e.javaClass.simpleName}: ${e.message}")
             return null

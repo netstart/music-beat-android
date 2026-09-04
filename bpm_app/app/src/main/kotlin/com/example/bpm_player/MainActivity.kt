@@ -464,7 +464,7 @@ class MainActivity : AppCompatActivity() {
         applyBpm(binding.bpmSlider.value)
         setRepeatVisualState()
         updateLoopAllVisual()
-        setupBpmCardDoubleTap()
+        ensureVisualizerRunning()
 
         // Edge-to-edge: conteúdo ocupa a tela inteira, barras do sistema são transparentes
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -540,7 +540,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyBpm(targetBpm: Float) {
-        binding.bpmValue.text = String.format(Locale.US, "%.0f", targetBpm)
+        binding.trackBpmValue.text = String.format(Locale.US, "%.0f", targetBpm)
         pulseBpmValue()
 
         val referenceBpm = if (detectedBpm > 0f) detectedBpm else targetBpm
@@ -574,10 +574,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun pulseBpmValue() {
         if (pulseScaleX == null) {
-            pulseScaleX = ObjectAnimator.ofFloat(binding.bpmValue, "scaleX", 1f, 1.05f, 1f).apply {
+            pulseScaleX = ObjectAnimator.ofFloat(binding.trackBpmValue, "scaleX", 1f, 1.05f, 1f).apply {
                 duration = 180
             }
-            pulseScaleY = ObjectAnimator.ofFloat(binding.bpmValue, "scaleY", 1f, 1.05f, 1f).apply {
+            pulseScaleY = ObjectAnimator.ofFloat(binding.trackBpmValue, "scaleY", 1f, 1.05f, 1f).apply {
                 duration = 180
             }
         }
@@ -587,77 +587,58 @@ class MainActivity : AppCompatActivity() {
         pulseScaleY?.start()
     }
 
-    // --- Visualizador BPM: duplo toque no hero card alterna o card ---
-    private val bpmCardGestureDetector by lazy {
-        GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent): Boolean = true
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                toggleVisualizerCard()
-                return true
-            }
-        })
-    }
-
-    private fun setupBpmCardDoubleTap() {
-        val card = binding.bpmCardContainer
-        card.setOnTouchListener { _, ev ->
-            bpmCardGestureDetector.onTouchEvent(ev)
-            false
-        }
-    }
-
-    private fun toggleVisualizerCard() {
-        showVisualizerCard = !showVisualizerCard
-        binding.bpmCardContainer.visibility = if (showVisualizerCard) View.GONE else View.VISIBLE
-        binding.visualizerCard.visibility = if (showVisualizerCard) View.VISIBLE else View.GONE
-        if (showVisualizerCard) startVisualizer() else stopVisualizer()
-    }
-
-    private fun startVisualizer() {
+    // --- Visualizador: inicia automaticamente (PCM do arquivo, sem mic) ---
+    private fun ensureVisualizerRunning() {
         if (!::audioAnalyzer.isInitialized) {
             audioAnalyzer = AudioAnalyzer(applicationContext)
         }
-        if (audioAnalyzer.hasPermission()) {
-            audioAnalyzer.start()
-        } else {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1003)
+        val uri = playingSongUri ?: selectedSongUri
+        if (uri != null) {
+            audioAnalyzer.load(uri)
         }
         visualizerHandler.removeCallbacks(visualizerUpdater)
         visualizerHandler.post(visualizerUpdater)
     }
 
-    private fun stopVisualizer() {
-        if (::audioAnalyzer.isInitialized) audioAnalyzer.stop()
-        visualizerHandler.removeCallbacks(visualizerUpdater)
-    }
-
     private val visualizerUpdater = object : Runnable {
         override fun run() {
-            if (!showVisualizerCard) return
-            val samples = if (::audioAnalyzer.isInitialized) audioAnalyzer.drainLatest() else null
             val isPlaying = exoPlayer?.isPlaying == true
             val currentBpm = binding.bpmSlider.value
+            val progressMs = exoPlayer?.currentPosition ?: 0L
             var note = "--"
             var octave = 0
             var section = ""
             var confidence = 0f
+            var samples: FloatArray? = null
 
-            if (samples != null) {
-                val pitch = PitchDetector.detect(samples, audioAnalyzer.getSampleRate())
-                if (pitch != null) {
-                    note = pitch.note
-                    octave = pitch.octave
-                    confidence = pitch.confidence
+            if (::audioAnalyzer.isInitialized) {
+                samples = audioAnalyzer.consume(progressMs)
+                if (samples != null) {
+                    val pitch = PitchDetector.detect(samples, audioAnalyzer.getSampleRate())
+                    if (pitch != null) {
+                        note = pitch.note
+                        octave = pitch.octave
+                        confidence = pitch.confidence
+                    }
+                    val rms = calculateRms(samples)
+                    val result = StructureDetector.detect(rms, prevFrameEnergy, avgFrameEnergy.coerceAtLeast(0.001f))
+                    section = result.label
+                    prevFrameEnergy = rms
+                    avgFrameEnergy = avgFrameEnergy * 0.9f + rms * 0.1f
                 }
-                val rms = calculateRms(samples)
-                val result = StructureDetector.detect(rms, prevFrameEnergy, avgFrameEnergy.coerceAtLeast(0.001f))
-                section = result.label
-                prevFrameEnergy = rms
-                avgFrameEnergy = avgFrameEnergy * 0.9f + rms * 0.1f
             }
 
-            val progressMs = exoPlayer?.currentPosition ?: 0L
-            binding.visualizerView.update(
+            val beatsPerBar = 4
+            val beatDisplay = if (currentBpm > 1f) {
+                val totalBeats = (progressMs / 1000.0) * (currentBpm / 60.0)
+                val currentBeatInBar = (totalBeats.toLong() % beatsPerBar).toInt() + 1
+                val currentBar = (totalBeats / beatsPerBar).toLong() + 1
+                "T $currentBar.$currentBeatInBar/$beatsPerBar"
+            } else {
+                "T 1.1/$beatsPerBar"
+            }
+
+            binding.bpmVisualizerInline.update(
                 BpmVisualizerView.VisualizerState(
                     bpm = currentBpm,
                     note = note,
@@ -669,6 +650,10 @@ class MainActivity : AppCompatActivity() {
                     progressMs = progressMs
                 )
             )
+            binding.bpmNoteValue.text = if (note != "--") "$note$octave" else "--"
+            binding.bpmOctaveValue.text = if (octave > 0) "OITAVA $octave" else ""
+            binding.bpmBeatValue.text = beatDisplay
+            binding.bpmSectionValue.text = section.ifBlank { "♪" }
             visualizerHandler.postDelayed(this, 80)
         }
     }
@@ -716,7 +701,7 @@ class MainActivity : AppCompatActivity() {
         when (requestCode) {
             1001 -> if (granted) filePickerLauncher.launch("audio/*")
             1002 -> if (granted) loadSongs()
-            1003 -> if (granted && showVisualizerCard) startVisualizer()
+            1003 -> ensureVisualizerRunning()
         }
     }
 
@@ -729,8 +714,7 @@ class MainActivity : AppCompatActivity() {
         // 1) tenta DISPLAY_NAME do content provider (caminho mais confiável)
         // 2) tenta a lista de músicas (MediaStore)
         // 3) extrai do path como último recurso
-        val fallbackTitle = resolveTrackTitle(uri)
-        binding.trackTitle.text = fallbackTitle
+        binding.trackTitle.text = resolveTrackTitle(uri)
         binding.trackStatus.text = getString(R.string.status_analyzing)
         binding.trackSlider.value = 0f
         binding.trackSlider.isEnabled = false
@@ -1079,7 +1063,8 @@ class MainActivity : AppCompatActivity() {
                     val countBefore = songs.size
                     dir.walkTopDown()
                         .maxDepth(6)
-                        .filter { f -> f.isFile && f.extension.equals("mp3", ignoreCase = true) }
+                        .filter { it.isFile && it.extension.equals("mp3", ignoreCase = true) }
+                        .toList()
                         .forEach { f ->
                             if (seenPaths.contains(f.absolutePath)) return@forEach
                             val path = f.absolutePath

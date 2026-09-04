@@ -43,43 +43,74 @@
                     android:paddingHorizontal="@dimen/card_padding"
                     android:paddingVertical="3dp">
 
-                    <!-- Conteúdo padrão: nota + oitava -->
+                    <!-- Conteúdo do hero: visualizador à esquerda, textos à direita -->
                     <LinearLayout
                         android:id="@+id/bpmHeroContent"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:gravity="center_vertical"
-                        android:orientation="vertical">
+                        android:orientation="horizontal">
 
-                        <TextView
-                            android:id="@+id/bpmNoteValue"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="sans-serif-medium"
-                            android:letterSpacing="-0.02"
-                            android:textColor="@color/text_primary"
-                            android:textSize="@dimen/hero_bpm_text_size"
-                            android:textStyle="bold"
-                            tools:text="C#4" />
+                        <!-- Visualizador BPM inline (esquerda) -->
+                        <com.example.bpm_player.BpmVisualizerView
+                            android:id="@+id/bpmVisualizerInline"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1" />
 
-                        <TextView
-                            android:id="@+id/bpmOctaveValue"
+                        <!-- Textos à direita: nota, oitava, batida, seção -->
+                        <LinearLayout
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="sans-serif-medium"
-                            android:letterSpacing="0.08"
-                            android:textAllCaps="true"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="10sp"
-                            tools:text="Intro" />
+                            android:layout_height="match_parent"
+                            android:gravity="center_vertical"
+                            android:orientation="vertical"
+                            android:paddingStart="12dp">
+
+                            <TextView
+                                android:id="@+id/bpmNoteValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:letterSpacing="-0.02"
+                                android:textColor="@color/text_primary"
+                                android:textSize="@dimen/hero_bpm_text_size"
+                                android:textStyle="bold"
+                                tools:text="C#4" />
+
+                            <TextView
+                                android:id="@+id/bpmOctaveValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:letterSpacing="0.08"
+                                android:textAllCaps="true"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="10sp"
+                                android:layout_marginTop="2dp"
+                                tools:text="Verse" />
+
+                            <TextView
+                                android:id="@+id/bpmBeatValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-mono"
+                                android:textColor="@color/accent"
+                                android:textSize="12sp"
+                                android:layout_marginTop="2dp"
+                                tools:text="T 1.1/4" />
+
+                            <TextView
+                                android:id="@+id/bpmSectionValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:letterSpacing="0.06"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="10sp"
+                                android:layout_marginTop="2dp"
+                                tools:text="Verse" />
+                        </LinearLayout>
                     </LinearLayout>
-
-                    <!-- Visualizador inline (substitui o conteúdo quando ativo) -->
-                    <com.example.bpm_player.BpmVisualizerView
-                        android:id="@+id/bpmVisualizerInline"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:visibility="gone" />
                 </FrameLayout>
 
                 <!-- Controles à direita -->
@@ -203,16 +234,35 @@
                 android:orientation="vertical"
                 android:padding="@dimen/card_padding">
 
-                <TextView
-                    android:id="@+id/trackTitle"
+                <!-- Título + BPM na mesma linha -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:ellipsize="middle"
-                    android:fontFamily="sans-serif-medium"
-                    android:maxLines="1"
-                    android:text="@string/empty_title"
-                    android:textColor="@color/text_primary"
-                    android:textSize="@dimen/track_title_size" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/trackTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="middle"
+                        android:fontFamily="sans-serif-medium"
+                        android:maxLines="1"
+                        android:text="@string/empty_title"
+                        android:textColor="@color/text_primary"
+                        android:textSize="@dimen/track_title_size" />
+
+                    <TextView
+                        android:id="@+id/trackBpmValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/accent"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        tools:text="120" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/trackStatus"
