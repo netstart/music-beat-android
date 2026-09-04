@@ -264,19 +264,33 @@ class MainActivity : AppCompatActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        Log.e("BPM_DEBUG", "=== onCreate START ===")
+        try {
+            super.onCreate(savedInstanceState)
+            Log.e("BPM_DEBUG", "super.onCreate OK")
+            binding = ActivityMainBinding.inflate(layoutInflater)
+            Log.e("BPM_DEBUG", "binding inflate OK")
+            setContentView(binding.root)
+            Log.e("BPM_DEBUG", "setContentView OK")
 
         // Setup RecyclerView for song list
         songAdapter = SongAdapter()
         binding.songList.layoutManager = LinearLayoutManager(this)
         binding.songList.adapter = songAdapter
         binding.songList.setHasFixedSize(true)
+        Log.e("BPM_DEBUG", "RecyclerView OK")
 
-        // Se esta activity foi iniciada via TestPlayReceiver (URI de teste), toca a música.
-        intent?.let { handleViewIntent(it) }
-
+            Log.e("BPM_DEBUG", "=== onCreate PHASE 1 OK ===")
+        } catch (e: Exception) {
+            Log.e("BPM_CRASH", "onCreate PHASE 1 CRASH: ${e.javaClass.simpleName}: ${e.message}", e)
+            throw e
+        }
+        try {
+            intent?.let { handleViewIntent(it) }
+        } catch (e: Exception) {
+            Log.e("BPM_CRASH", "handleViewIntent CRASH: ${e.javaClass.simpleName}: ${e.message}", e)
+        }
+        try {
         // ItemTouchHelper para reordenação manual e swipe para remover
         itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN,
@@ -459,6 +473,11 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        Log.e("BPM_DEBUG", "=== onCreate END SUCCESS ===")
+        } catch (e: Exception) {
+            Log.e("BPM_CRASH", "onCreate PHASE 2 CRASH: ${e.javaClass.simpleName}: ${e.message}", e)
+            throw e
+        }
     }
 
     override fun onResume() {
@@ -543,6 +562,11 @@ class MainActivity : AppCompatActivity() {
         }
         binding.tempoFactorValue.text =
             String.format(Locale.US, "%.2f× · %s", speed, description)
+
+        // Atualiza o status com BPM detectado + BPM atual
+        if (detectedBpm > 0f) {
+            binding.trackStatus.text = getString(R.string.status_bpm_detected, detectedBpm, targetBpm)
+        }
     }
 
     private var pulseScaleX: ObjectAnimator? = null
@@ -735,7 +759,7 @@ class MainActivity : AppCompatActivity() {
             val result = pcm?.let { BpmDetector.detect(it.samples, it.sampleRate) }
 
             withContext(Dispatchers.Main) {
-                if (uri != playingSongUri) return@withContext
+                if (isDestroyed || isFinishing || uri != playingSongUri) return@withContext
                 if (result != null && result.confidence > 0f) {
                     detectedBpm = result.bpm
                     binding.bpmSlider.value = (result.bpm + 0.5f).toInt().coerceIn(40, 200).toFloat()
