@@ -23,7 +23,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import kotlin.math.sqrt
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -59,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private var playingSongUri: Uri? = null
     private var currentArtist: String? = null
     private lateinit var songAdapter: SongAdapter
+    private val beatPagerAdapter = BeatPagerAdapter()
     private var sortMode: SortMode = SortMode.TITLE
     private var itemTouchHelper: ItemTouchHelper? = null
 
@@ -95,7 +95,6 @@ class MainActivity : AppCompatActivity() {
     enum class SortMode { TITLE, ARTIST, MANUAL }
 
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var audioAnalyzer: AudioAnalyzer
 
     private val positionUpdater = object : Runnable {
         override fun run() {
@@ -273,6 +272,11 @@ class MainActivity : AppCompatActivity() {
         binding.songList.adapter = songAdapter
         binding.songList.setHasFixedSize(true)
         Log.e("BPM_DEBUG", "RecyclerView OK")
+
+        // Setup beat pager (carrossel: downbeat / beat tracking)
+        binding.beatPager.adapter = beatPagerAdapter
+        binding.beatPager.offscreenPageLimit = 1
+        binding.beatPager.isUserInputEnabled = true
 
             Log.e("BPM_DEBUG", "=== onCreate PHASE 1 OK ===")
         } catch (e: Exception) {
@@ -577,23 +581,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val visualizerHandler = Handler(Looper.getMainLooper())
+    private var beatCyclePosition: Int = 1 // 1,2,3,4 — posição no compasso 4/4
     private val visualizerUpdater = object : Runnable {
         override fun run() {
             val isPlaying = exoPlayer?.isPlaying == true
             val progressMs = exoPlayer?.currentPosition ?: 0L
-            val pcm = if (::audioAnalyzer.isInitialized) audioAnalyzer.consume(progressMs) ?: FloatArray(0) else FloatArray(0)
-            val rms = if (pcm.isNotEmpty()) { var s=0.0; for(v in pcm) s+=v*v; kotlin.math.sqrt(s/pcm.size).toFloat() } else 0f
-            binding.beatMeter.update(binding.bpmSlider.value, rms, isPlaying)
-            val beatMs = (60_000f / binding.bpmSlider.value).toLong()
-            if (isPlaying && progressMs % beatMs < 60) binding.beatMeter.onBeat()
+            val bpm = binding.bpmSlider.value
+            val rms = 0.5f // energia simulada (removido audioAnalyzer junto com Beat Tracking)
+            beatPagerAdapter.onUpdate(bpm, rms, isPlaying, beatCyclePosition)
+            val beatMs = (60_000f / bpm).toLong()
+            if (isPlaying && progressMs % beatMs < 60) {
+                beatPagerAdapter.fireBeat()
+                beatCyclePosition = (beatCyclePosition % 4) + 1
+            }
             visualizerHandler.postDelayed(this, 60)
         }
     }
 
     private fun ensureVisualizerRunning() {
-        if (!::audioAnalyzer.isInitialized) audioAnalyzer = AudioAnalyzer(applicationContext)
-        val uri = playingSongUri ?: selectedSongUri
-        if (uri != null) audioAnalyzer.load(uri)
         visualizerHandler.removeCallbacks(visualizerUpdater)
         visualizerHandler.post(visualizerUpdater)
     }
@@ -770,6 +775,9 @@ class MainActivity : AppCompatActivity() {
     private fun startPlayback(uri: Uri) {
         // Aborta se o usuário já selecionou outra música enquanto a detecção rodava.
         if (uri != playingSongUri) return
+
+        // Reseta os gráficos do carousel ao trocar de música.
+        beatPagerAdapter.reset()
 
         // Safety: se algo falhar, não crash — apenas volta ao estado anterior.
         try {
@@ -1239,7 +1247,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         handler.removeCallbacks(positionUpdater)
         visualizerHandler.removeCallbacks(visualizerUpdater)
-        if (::audioAnalyzer.isInitialized) audioAnalyzer.stop()
         exoPlayer?.release()
     }
 }

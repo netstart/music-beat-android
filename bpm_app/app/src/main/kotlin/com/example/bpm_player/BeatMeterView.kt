@@ -133,6 +133,13 @@ class BeatMeterView @JvmOverloads constructor(
         }
     }
 
+    fun reset() {
+        decayAnimator?.cancel()
+        for (i in barPx.indices) { barPx[i] = 0f; targetPx[i] = 0f }
+        activeBar = 0
+        invalidate()
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         decayAnimator?.cancel()
