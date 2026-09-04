@@ -95,6 +95,7 @@ class MainActivity : AppCompatActivity() {
     enum class SortMode { TITLE, ARTIST, MANUAL }
 
     private val handler = Handler(Looper.getMainLooper())
+    private lateinit var audioAnalyzer: AudioAnalyzer
 
     private val positionUpdater = object : Runnable {
         override fun run() {
@@ -457,6 +458,7 @@ class MainActivity : AppCompatActivity() {
         applyBpm(binding.bpmSlider.value)
         setRepeatVisualState()
         updateLoopAllVisual()
+        ensureVisualizerRunning()
 
         // Edge-to-edge: conteúdo ocupa a tela inteira, barras do sistema são transparentes
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -572,6 +574,28 @@ class MainActivity : AppCompatActivity() {
         pulseScaleY?.cancel()
         pulseScaleX?.start()
         pulseScaleY?.start()
+    }
+
+    private val visualizerHandler = Handler(Looper.getMainLooper())
+    private val visualizerUpdater = object : Runnable {
+        override fun run() {
+            val isPlaying = exoPlayer?.isPlaying == true
+            val progressMs = exoPlayer?.currentPosition ?: 0L
+            val pcm = if (::audioAnalyzer.isInitialized) audioAnalyzer.consume(progressMs) ?: FloatArray(0) else FloatArray(0)
+            val rms = if (pcm.isNotEmpty()) { var s=0.0; for(v in pcm) s+=v*v; kotlin.math.sqrt(s/pcm.size).toFloat() } else 0f
+            binding.beatMeter.update(binding.bpmSlider.value, rms, isPlaying)
+            val beatMs = (60_000f / binding.bpmSlider.value).toLong()
+            if (isPlaying && progressMs % beatMs < 60) binding.beatMeter.onBeat()
+            visualizerHandler.postDelayed(this, 60)
+        }
+    }
+
+    private fun ensureVisualizerRunning() {
+        if (!::audioAnalyzer.isInitialized) audioAnalyzer = AudioAnalyzer(applicationContext)
+        val uri = playingSongUri ?: selectedSongUri
+        if (uri != null) audioAnalyzer.load(uri)
+        visualizerHandler.removeCallbacks(visualizerUpdater)
+        visualizerHandler.post(visualizerUpdater)
     }
 
     private fun audioPermission(): String =
@@ -1214,6 +1238,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(positionUpdater)
+        visualizerHandler.removeCallbacks(visualizerUpdater)
+        if (::audioAnalyzer.isInitialized) audioAnalyzer.stop()
         exoPlayer?.release()
     }
 }

@@ -3,13 +3,12 @@
     Compila o projeto BPM Player para PRODUÇÃO (release) da forma mais rápida possível.
 .DESCRIPTION
     Gera o APK release otimizado (minify, shrink, align) com flags de performance.
-    APK gerado em: C:\src\music-beat\bpm_player-release.apk
+    APK gerado em subpastas de: $PROJECT\app\build\outputs
 #>
 
 $JAVA_HOME = "C:\Java\jdk-17.0.20.1+1"
 $GRADLE    = "C:\Gradle\gradle-8.2\bin\gradle.bat"
 $PROJECT   = "C:\src\music-beat\bpm_app"
-$OUT_DIR   = "C:\src\music-beat"
 
 # Configura SDK para o Gradle
 $env:ANDROID_HOME       = "C:\Android\Sdk"
@@ -62,13 +61,27 @@ Write-Host "Executando: gradle $($gradleArgs -join ' ')"
 & $GRADLE @gradleArgs
 $exitCode = $LASTEXITCODE
 
-# Verifica resultado (APK release)
-$APK_OUT = "$PROJECT\app\build\outputs\apk\release\app-release.apk"
-# Fallback para unsigned se não assinado
-$APK_UNSIGNED = "$PROJECT\app\build\outputs\apk\release\app-release-unsigned.apk"
+# Verifica resultado (APK release) - busca recursiva em outputs
+# Prioriza arquivos assinados (sem "-unsigned" no nome)
+$apkFiles = Get-ChildItem -Path "$PROJECT\app\build\outputs" -Recurse -Filter *.apk -File | Sort-Object LastWriteTime -Descending
+$APK_OUT = $null
+$APK_UNSIGNED = $null
+foreach ($f in $apkFiles) {
+    if ($f.Name -like "*-unsigned.apk") {
+        if (-not $APK_UNSIGNED) { $APK_UNSIGNED = $f.FullName }
+    } else {
+        if (-not $APK_OUT) { $APK_OUT = $f.FullName }
+    }
+}
+if ($apkFiles) {
+    Write-Host "APK(s) encontrado(s) em outputs:"
+    foreach ($f in $apkFiles) { Write-Host "  - $($f.FullName)" }
+} else {
+    Write-Host "AVISO: Nenhum .apk encontrado em $PROJECT\app\build\outputs"
+}
 
 if ($exitCode -eq 0) {
-    $finalApk = if (Test-Path $APK_OUT) { $APK_OUT } elseif (Test-Path $APK_UNSIGNED) { $APK_UNSIGNED } else { $null }
+    $finalApk = if ($APK_OUT) { $APK_OUT } elseif ($APK_UNSIGNED) { $APK_UNSIGNED } else { $null }
 
     if ($finalApk) {
         $sizeMB = [math]::Round((Get-Item $finalApk).Length / 1MB, 1)
@@ -78,14 +91,12 @@ if ($exitCode -eq 0) {
         Write-Host "  APK: $finalApk ($sizeMB MB)"
         Write-Host "===================================================="
 
-        # Copia para a raiz do projeto
-        Copy-Item $finalApk "$OUT_DIR\bpm_player-release.apk" -Force
-        Write-Host "  Copiado para: $OUT_DIR\bpm_player-release.apk"
+        # APK já está em subpastas de outputs; não precisa copiar para raiz
     } else {
         $scriptEnd = Get-Date
         Write-Host ""
         Write-Host "AVISO: Build passou mas APK não encontrado nos caminhos esperados"
-        Write-Host "  Esperado: $APK_OUT ou $APK_UNSIGNED"
+        Write-Host "  Procurado em: $PROJECT\app\build\outputs (recursivo)"
         Write-Host ""
         Write-Host "===================================================="
         Write-Host "  TEMPO TOTAL: $(($scriptEnd - $scriptStart).ToString('hh\:mm\:ss'))"
@@ -100,7 +111,7 @@ if ($exitCode -eq 0) {
     Write-Host " Troubleshooting:"
     Write-Host "  * Verifique erros de compilação acima"
     Write-Host "  * Confira signingConfig no build.gradle (release precisa assinatura)"
-    Write-Host "  * Para build debug rápido: .\run_build_low_apk.ps1"
+    Write-Host "  * Para build debug rápido: .\run_to_dev_build_apk.ps1"
     Write-Host ""
     Write-Host "===================================================="
     Write-Host "  TEMPO TOTAL: $(($scriptEnd - $scriptStart).ToString('hh\:mm\:ss'))"

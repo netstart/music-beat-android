@@ -19,4 +19,8 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "=== [3/3] Instalando via USB ==="
-.\run_install_usb_device.ps1 -ApkPath "C:\src\music-beat\bpm_player.apk"
+# Busca o APK mais recente na árvore outputs para passar ao script de instalação
+$apkFiles = Get-ChildItem -Path "C:\src\music-beat\bpm_app\app\build\outputs" -Recurse -Filter *.apk -File | Sort-Object LastWriteTime -Descending
+$apkPath = if ($apkFiles) { $apkFiles[0].FullName } else { "" }
+if ($apkPath) { Write-Host "APK selecionado para instalação: $apkPath" }
+.\run_install_usb_device.ps1 -ApkPath $apkPath

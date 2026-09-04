@@ -4,13 +4,12 @@
 .DESCRIPTION
     Gera o APK debug sem otimizações de produção, pulando verificações lentas.
     Use para testes rápidos durante desenvolvimento.
-    APK gerado em: C:\src\music-beat\bpm_player.apk
+    APK gerado em subpastas de: $PROJECT\app\build\outputs
 #>
 
 $JAVA_HOME = "C:\Java\jdk-17.0.20.1+1"
 $GRADLE    = "C:\Gradle\gradle-8.2\bin\gradle.bat"
 $PROJECT   = "C:\src\music-beat\bpm_app"
-$OUT_DIR   = "C:\src\music-beat"
 
 # Configura SDK para o Gradle
 $env:ANDROID_HOME       = "C:\Android\Sdk"
@@ -69,9 +68,11 @@ Write-Host "Executando: gradle $($gradleArgs -join ' ')"
 & $GRADLE @gradleArgs
 $exitCode = $LASTEXITCODE
 
-# Verifica resultado
-$APK_OUT = "$PROJECT\app\build\outputs\apk\debug\app-debug.apk"
-if ($exitCode -eq 0 -and (Test-Path $APK_OUT)) {
+# Verifica resultado - busca recursiva do APK em outputs
+$apkFiles = Get-ChildItem -Path "$PROJECT\app\build\outputs" -Recurse -Filter *.apk -File | Sort-Object LastWriteTime -Descending
+$APK_OUT = if ($apkFiles) { $apkFiles[0].FullName } else { $null }
+if ($apkFiles) { Write-Host "APK encontrado: $APK_OUT" } else { Write-Host "AVISO: Nenhum .apk encontrado em $PROJECT\app\build\outputs" }
+if ($exitCode -eq 0 -and $APK_OUT) {
     $sizeMB = [math]::Round((Get-Item $APK_OUT).Length / 1MB, 1)
     Write-Host ""
     Write-Host "===================================================="
@@ -79,9 +80,7 @@ if ($exitCode -eq 0 -and (Test-Path $APK_OUT)) {
     Write-Host "  APK: $APK_OUT ($sizeMB MB)"
     Write-Host "===================================================="
 
-    # Copia para a raiz do projeto
-    Copy-Item $APK_OUT "$OUT_DIR\bpm_player.apk" -Force
-    Write-Host "  Copiado para: $OUT_DIR\bpm_player.apk"
+    # APK já está em subpastas de outputs; não precisa copiar para raiz
 } else {
     $scriptEnd = Get-Date
     Write-Host ""

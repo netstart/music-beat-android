@@ -6,7 +6,7 @@
 #     e os exclui permanentemente. CUIDADO: exclusão é irreversível.
 #
 
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = "C:\src\music-beat\bpm_app\app\build\outputs"
 $apks = Get-ChildItem -Path $root -Recurse -Filter *.apk -File -ErrorAction SilentlyContinue
 
 if ($apks.Count -eq 0) {

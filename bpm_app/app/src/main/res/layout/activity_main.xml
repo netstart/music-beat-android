@@ -26,14 +26,20 @@
             android:paddingTop="@dimen/screen_padding_top"
             android:paddingBottom="11dp">
 
-            <!-- Controles BPM à direita (card visível) -->
+            <!-- Hero: beat meter à esquerda + controles à direita -->
             <LinearLayout
                 android:id="@+id/bpmCardContainer"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="end"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
+
+                <!-- Beat meter: barras ao lado dos botões (à esquerda, no lugar do card hero) -->
+                <com.example.bpm_player.BeatMeterView
+                    android:id="@+id/beatMeter"
+                    android:layout_width="0dp"
+                    android:layout_height="@dimen/hero_min_height"
+                    android:layout_weight="1" />
 
                 <!-- Controles -->
                 <LinearLayout

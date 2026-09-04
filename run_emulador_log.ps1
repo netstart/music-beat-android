@@ -4,7 +4,6 @@
 #>
 
 $SDK          = "C:\Android\Sdk"
-$APK_PATH     = "C:\src\music-beat\bpm_app\app\build\outputs\apk\debug\app-debug.apk"
 $AVD_NAME     = "test_device"
 $PACKAGE_NAME = "com.example.bpm_player"
 $LAUNCHER     = "$PACKAGE_NAME/.MainActivity"
@@ -12,6 +11,16 @@ $LOG_DIR      = "C:\src\music-beat\logs"
 
 $adb      = "$SDK\platform-tools\adb.exe"
 $emulator = "$SDK\emulator\emulator.exe"
+
+# Busca recursiva de APK na pasta outputs
+$apkFiles = Get-ChildItem -Path "C:\src\music-beat\bpm_app\app\build\outputs" -Recurse -Filter *.apk -File | Sort-Object LastWriteTime -Descending
+if ($apkFiles) {
+    $APK_PATH = $apkFiles[0].FullName
+    Write-Host "APK encontrado: $APK_PATH"
+} else {
+    $APK_PATH = $null
+    Write-Host "AVISO: Nenhum .apk encontrado em C:\src\music-beat\bpm_app\app\build\outputs"
+}
 
 New-Item -ItemType Directory -Force -Path $LOG_DIR | Out-Null
 

@@ -13,11 +13,24 @@
 # ============================= CONFIGURAÇÕES =============================
 param(
     [Parameter(Mandatory=$false)]
-    [string]$ApkPath = "C:\src\music-beat\bpm_player-release.apk"
+    [string]$ApkPath = ""
 )
 
 $SDK           = "C:\Android\Sdk"
-$APK_PATH      = $ApkPath
+
+# Se não foi passado ApkPath, busca recursivamente o APK em outputs
+if ([string]::IsNullOrWhiteSpace($ApkPath)) {
+    $apkFiles = Get-ChildItem -Path "C:\src\music-beat\bpm_app\app\build\outputs" -Recurse -Filter *.apk -File | Sort-Object LastWriteTime -Descending
+    if ($apkFiles) {
+        $APK_PATH = $apkFiles[0].FullName
+        Write-Host "APK encontrado: $APK_PATH"
+    } else {
+        $APK_PATH = $null
+        Write-Host "AVISO: Nenhum .apk encontrado em C:\src\music-beat\bpm_app\app\build\outputs"
+    }
+} else {
+    $APK_PATH = $ApkPath
+}
 $PACKAGE_NAME  = "com.example.bpm_player"
 $LAUNCHER      = "$PACKAGE_NAME/.MainActivity"
 # ========================================================================
