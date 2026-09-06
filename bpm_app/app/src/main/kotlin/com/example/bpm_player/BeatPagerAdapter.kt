@@ -62,6 +62,7 @@ class BeatPagerAdapter : RecyclerView.Adapter<BeatPagerAdapter.BeatViewHolder>()
             binding.pagerContainer.removeAllViews()
             // Limpa referências antigas dessa posição antes de criar a nova view
             meters.remove(position)
+            pulses.remove(position)
             when (position) {
                 0 -> {
                     val meter = BeatMeterView(binding.root.context)
