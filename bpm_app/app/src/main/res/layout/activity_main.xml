@@ -26,21 +26,74 @@
             android:paddingTop="@dimen/screen_padding_top"
             android:paddingBottom="11dp">
 
-            <!-- Hero: carrossel de gráficos à esquerda + controles à direita -->
+            <!-- Hero Card: BPM grande à esquerda + controles à direita (Section 4.6 DESIGN_SYSTEM) -->
             <LinearLayout
                 android:id="@+id/bpmCardContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_hero"
+                android:padding="10dp"
+                android:minHeight="@dimen/hero_min_height">
 
-                <androidx.viewpager2.widget.ViewPager2
-                    android:id="@+id/beatPager"
+                <!-- Hero BPM Display -->
+                <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="@dimen/hero_min_height"
-                    android:layout_weight="1" />
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal"
+                    android:paddingVertical="8dp">
 
-                <!-- Controles -->
+                    <FrameLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center">
+
+                        <!-- Accent circle background -->
+                        <View
+                            android:id="@+id/bpmAccentCircle"
+                            android:layout_width="@dimen/hero_accent_circle_size"
+                            android:layout_height="@dimen/hero_accent_circle_size"
+                            android:background="@drawable/bg_circle_accent" />
+
+                        <!-- Music icon inside circle -->
+                        <ImageView
+                            android:layout_width="@dimen/hero_icon_size"
+                            android:layout_height="@dimen/hero_icon_size"
+                            android:layout_gravity="center"
+                            android:contentDescription="@string/cd_music_note"
+                            android:src="@drawable/ic_music_note"
+                            android:tint="@color/accent" />
+
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/bpmValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:fontFeatureSettings="tnum"
+                        android:letterSpacing="-0.02"
+                        android:text="@string/bpm_default"
+                        android:textColor="@color/text_primary"
+                        android:textSize="@dimen/hero_bpm_text_size" />
+
+                    <TextView
+                        android:id="@+id/bpmLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:letterSpacing="0.08"
+                        android:text="@string/bpm_caption"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="@dimen/hero_label_size" />
+                </LinearLayout>
+
+                <!-- Controles à direita -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

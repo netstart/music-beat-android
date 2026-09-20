@@ -3,6 +3,7 @@
     <string name="app_name">BeatTrack</string>
     <string name="header_subtitle">Tempo real para músicas locais</string>
     <string name="bpm_caption">BPM</string>
+    <string name="bpm_default">120</string>
     <string name="btn_reset">Original</string>
     <string name="btn_choose">Localizar música</string>
     <string name="empty_title">Nenhuma música selecionada</string>

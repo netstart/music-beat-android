@@ -58,7 +58,6 @@ class MainActivity : AppCompatActivity() {
     private var playingSongUri: Uri? = null
     private var currentArtist: String? = null
     private lateinit var songAdapter: SongAdapter
-    private val beatPagerAdapter = BeatPagerAdapter()
     private var sortMode: SortMode = SortMode.TITLE
     private var itemTouchHelper: ItemTouchHelper? = null
 
@@ -271,12 +270,7 @@ class MainActivity : AppCompatActivity() {
         binding.songList.layoutManager = LinearLayoutManager(this)
         binding.songList.adapter = songAdapter
         binding.songList.setHasFixedSize(true)
-        Log.e("BPM_DEBUG", "RecyclerView OK")
-
-        // Setup beat pager (carrossel: downbeat / beat tracking)
-        binding.beatPager.adapter = beatPagerAdapter
-        binding.beatPager.offscreenPageLimit = 1
-        binding.beatPager.isUserInputEnabled = true
+Log.e("BPM_DEBUG", "RecyclerView OK")
 
             Log.e("BPM_DEBUG", "=== onCreate PHASE 1 OK ===")
         } catch (e: Exception) {
@@ -462,7 +456,6 @@ class MainActivity : AppCompatActivity() {
         applyBpm(binding.bpmSlider.value)
         setRepeatVisualState()
         updateLoopAllVisual()
-        ensureVisualizerRunning()
 
         // Edge-to-edge: conteúdo ocupa a tela inteira, barras do sistema são transparentes
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -538,7 +531,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyBpm(targetBpm: Float) {
-        binding.trackBpmValue.text = String.format(Locale.US, "%.0f", targetBpm)
+        binding.bpmValue.text = String.format(Locale.US, "%.0f", targetBpm)
         pulseBpmValue()
 
         val referenceBpm = if (detectedBpm > 0f) detectedBpm else targetBpm
@@ -567,10 +560,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun pulseBpmValue() {
         if (pulseScaleX == null) {
-            pulseScaleX = ObjectAnimator.ofFloat(binding.trackBpmValue, "scaleX", 1f, 1.05f, 1f).apply {
+            pulseScaleX = ObjectAnimator.ofFloat(binding.bpmValue, "scaleX", 1f, 1.05f, 1f).apply {
                 duration = 180
             }
-            pulseScaleY = ObjectAnimator.ofFloat(binding.trackBpmValue, "scaleY", 1f, 1.05f, 1f).apply {
+            pulseScaleY = ObjectAnimator.ofFloat(binding.bpmValue, "scaleY", 1f, 1.05f, 1f).apply {
                 duration = 180
             }
         }
@@ -578,29 +571,6 @@ class MainActivity : AppCompatActivity() {
         pulseScaleY?.cancel()
         pulseScaleX?.start()
         pulseScaleY?.start()
-    }
-
-    private val visualizerHandler = Handler(Looper.getMainLooper())
-    private var beatCyclePosition: Int = 1 // 1,2,3,4 — posição no compasso 4/4
-    private val visualizerUpdater = object : Runnable {
-        override fun run() {
-            val isPlaying = exoPlayer?.isPlaying == true
-            val progressMs = exoPlayer?.currentPosition ?: 0L
-            val bpm = binding.bpmSlider.value
-            val rms = 0.5f // energia simulada (removido audioAnalyzer junto com Beat Tracking)
-            beatPagerAdapter.onUpdate(bpm, rms, isPlaying, beatCyclePosition)
-            val beatMs = (60_000f / bpm).toLong()
-            if (isPlaying && progressMs % beatMs < 60) {
-                beatPagerAdapter.fireBeat()
-                beatCyclePosition = (beatCyclePosition % 4) + 1
-            }
-            visualizerHandler.postDelayed(this, 60)
-        }
-    }
-
-    private fun ensureVisualizerRunning() {
-        visualizerHandler.removeCallbacks(visualizerUpdater)
-        visualizerHandler.post(visualizerUpdater)
     }
 
     private fun audioPermission(): String =
@@ -775,9 +745,6 @@ class MainActivity : AppCompatActivity() {
     private fun startPlayback(uri: Uri) {
         // Aborta se o usuário já selecionou outra música enquanto a detecção rodava.
         if (uri != playingSongUri) return
-
-        // Reseta os gráficos do carousel ao trocar de música.
-        beatPagerAdapter.reset()
 
         // Safety: se algo falhar, não crash — apenas volta ao estado anterior.
         try {
@@ -1246,7 +1213,6 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(positionUpdater)
-        visualizerHandler.removeCallbacks(visualizerUpdater)
         exoPlayer?.release()
     }
 }
