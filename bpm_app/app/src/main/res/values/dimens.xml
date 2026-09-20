@@ -4,10 +4,9 @@
     <dimen name="song_list_height">140dp</dimen>
     <dimen name="footer_button_height">48dp</dimen>
     <dimen name="hero_min_height">41dp</dimen>
-    <dimen name="hero_bpm_text_size">36sp</dimen>
+    <dimen name="hero_bpm_text_size">72sp</dimen>
     <dimen name="hero_accent_circle_size">48dp</dimen>
     <dimen name="hero_icon_size">24dp</dimen>
-    <dimen name="hero_label_size">11sp</dimen>
     <dimen name="card_padding">4dp</dimen>
     <dimen name="screen_padding_horizontal">16dp</dimen>
     <dimen name="screen_padding_top">14dp</dimen>

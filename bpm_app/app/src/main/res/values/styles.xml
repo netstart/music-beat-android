@@ -18,7 +18,7 @@
         <item name="trackColorActive">@color/accent</item>
         <item name="trackColorInactive">@color/outline</item>
         <item name="thumbColor">@color/accent</item>
-        <item name="haloColor">@color/accent_wash</item>
+        <item name="haloColor">@color/accent_light</item>
         <item name="tickVisible">false</item>
         <item name="labelBehavior">floating</item>
     </style>

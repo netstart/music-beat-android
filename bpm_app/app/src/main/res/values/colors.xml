@@ -10,6 +10,5 @@
     <color name="text_secondary">#FF93A4B3</color>
     <color name="text_tertiary">#FF6E7F8D</color>
     <color name="outline">#FF263340</color>
-    <color name="accent_wash">#242EE6A8</color>
-    <color name="accent_light">#15252E</color>
+    <color name="accent_light">#142EE6A8</color>
 </resources>

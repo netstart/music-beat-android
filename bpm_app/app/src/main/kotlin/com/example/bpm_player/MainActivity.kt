@@ -555,22 +555,15 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
             String.format(Locale.US, "%.2f× · %s", speed, description)
     }
 
-    private var pulseScaleX: ObjectAnimator? = null
-    private var pulseScaleY: ObjectAnimator? = null
-
     private fun pulseBpmValue() {
-        if (pulseScaleX == null) {
-            pulseScaleX = ObjectAnimator.ofFloat(binding.bpmValue, "scaleX", 1f, 1.05f, 1f).apply {
-                duration = 180
-            }
-            pulseScaleY = ObjectAnimator.ofFloat(binding.bpmValue, "scaleY", 1f, 1.05f, 1f).apply {
-                duration = 180
-            }
+        ObjectAnimator.ofFloat(binding.bpmValue, "scaleX", 1f, 1.05f, 1f).apply {
+            duration = 180
+            start()
         }
-        pulseScaleX?.cancel()
-        pulseScaleY?.cancel()
-        pulseScaleX?.start()
-        pulseScaleY?.start()
+        ObjectAnimator.ofFloat(binding.bpmValue, "scaleY", 1f, 1.05f, 1f).apply {
+            duration = 180
+            start()
+        }
     }
 
     private fun audioPermission(): String =
