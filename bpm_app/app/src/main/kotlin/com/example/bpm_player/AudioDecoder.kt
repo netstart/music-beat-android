@@ -50,7 +50,7 @@ import java.nio.ByteOrder
 
             extractor.selectTrack(trackIndex)
 
-            val mime = trackFormat.getString(MediaFormat.KEY_MIME)!!
+            val mime = trackFormat.getString(MediaFormat.KEY_MIME) ?: return null
             var sampleRate = trackFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
             var channels = trackFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
             var pcmEncoding = AudioFormat.ENCODING_PCM_16BIT
@@ -71,7 +71,7 @@ import java.nio.ByteOrder
                 if (!inputDone) {
                     val inIndex = codec.dequeueInputBuffer(TIMEOUT_US)
                     if (inIndex >= 0) {
-                        val buffer = codec.getInputBuffer(inIndex)!!
+                        val buffer = codec.getInputBuffer(inIndex) ?: continue
                         val size = extractor.readSampleData(buffer, 0)
                         if (size < 0 || (!decodeAll && extractor.sampleTime > maxDurationUs)) {
                             codec.queueInputBuffer(
@@ -103,7 +103,7 @@ import java.nio.ByteOrder
                     }
                     else -> {
                         if (outIndex >= 0) {
-                            val buffer = codec.getOutputBuffer(outIndex)!!
+                            val buffer = codec.getOutputBuffer(outIndex) ?: continue
                             buffer.position(info.offset)
                             buffer.limit(info.offset + info.size)
                             buffer.order(ByteOrder.LITTLE_ENDIAN)

@@ -5,7 +5,6 @@ import android.animation.ObjectAnimator
 import android.content.res.ColorStateList
 import android.content.pm.PackageManager
 import android.content.Intent
-import android.widget.PopupMenu
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
@@ -26,10 +25,12 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -38,18 +39,25 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.bpm_player.databinding.ActivityMainBinding
+import com.example.bpm_player.databinding.ActivityMainStemkitBinding
 import com.example.bpm_player.databinding.ItemSongBinding
+import com.example.bpm_player.stem.SeparationEngine
+import com.example.bpm_player.stem.StemPlayerSync
+import com.example.bpm_player.stem.StemsAdapter
+import com.example.bpm_player.stem.StemTrack
+import com.example.bpm_player.stem.StemsCache
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+import kotlin.math.max
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMainBinding
+    private lateinit var binding: ActivityMainStemkitBinding
     private var exoPlayer: ExoPlayer? = null
     private var detectedBpm: Float = 0f
     private var isRepeating = false
@@ -65,6 +73,11 @@ class MainActivity : AppCompatActivity() {
     private var bpmHoldRunnable: Runnable? = null
     private var bpmHoldDelta = 0f
 
+    private var stemPlayerSync: StemPlayerSync? = null
+    private lateinit var stemsAdapter: StemsAdapter
+    private var separationJob: Job? = null
+    private var isSeparating = false
+
     private fun createBpmHoldTouchListener(delta: Float): View.OnTouchListener {
         return View.OnTouchListener { view, event ->
             when (event.action) {
@@ -72,13 +85,14 @@ class MainActivity : AppCompatActivity() {
                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     adjustBpm(delta)
                     bpmHoldDelta = delta
-                    bpmHoldRunnable = object : Runnable {
+                    val runnable = object : Runnable {
                         override fun run() {
                             adjustBpm(bpmHoldDelta)
                             bpmHoldHandler.postDelayed(this, 60)
                         }
                     }
-                    bpmHoldHandler.postDelayed(bpmHoldRunnable!!, 400)
+                    bpmHoldRunnable = runnable
+                    bpmHoldHandler.postDelayed(runnable, 400)
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -103,22 +117,29 @@ class MainActivity : AppCompatActivity() {
                         .coerceIn(0f, 1000f)
                     binding.trackSlider.value = fraction
                     binding.trackTimeCurrent.text = formatTime(player.currentPosition)
+
+                    stemPlayerSync?.let { sync ->
+                        if (sync.isPlaying()) {
+                            val stemPos = sync.currentPosition()
+                            val stemFrac = (stemPos.toFloat() / sync.duration() * 1000f).coerceIn(0f, 1000f)
+                            binding.trackSlider.value = stemFrac
+                            binding.trackTimeCurrent.text = formatTime(stemPos)
+                        }
+                    }
                 }
             }
             handler.postDelayed(this, 500)
         }
     }
 
-    // --- Song data class ---
     data class Song(
         val uri: Uri,
         val title: String,
         val artist: String,
         val duration: Long,
-        val filePath: String = "" // caminho do arquivo no sistema de arquivos
+        val filePath: String = ""
     )
 
-    // --- SongAdapter for RecyclerView ---
     inner class SongAdapter : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
         private var songs: List<Song> = emptyList()
@@ -149,9 +170,11 @@ class MainActivity : AppCompatActivity() {
                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     if (isPlaying) {
                         exoPlayer?.pause()
+                        stemPlayerSync?.pause()
                         playingSongUri = null
                         setPlayingPosition(RecyclerView.NO_POSITION)
                         binding.songIcon.announceForAccessibility(getString(R.string.cd_pause))
+                        updateSeparateStemsButtonState()
                     } else {
                         selectedSongUri = song.uri
                         setSelectedPosition(position)
@@ -260,17 +283,16 @@ class MainActivity : AppCompatActivity() {
         try {
             super.onCreate(savedInstanceState)
             Log.e("BPM_DEBUG", "super.onCreate OK")
-            binding = ActivityMainBinding.inflate(layoutInflater)
+            binding = ActivityMainStemkitBinding.inflate(layoutInflater)
             Log.e("BPM_DEBUG", "binding inflate OK")
             setContentView(binding.root)
             Log.e("BPM_DEBUG", "setContentView OK")
 
-        // Setup RecyclerView for song list
-        songAdapter = SongAdapter()
-        binding.songList.layoutManager = LinearLayoutManager(this)
-        binding.songList.adapter = songAdapter
-        binding.songList.setHasFixedSize(true)
-Log.e("BPM_DEBUG", "RecyclerView OK")
+            setupDrawer()
+            setupRecyclerViews()
+            setupStemsAdapter()
+            setupPlayerControls()
+            setupBpmControls()
 
             Log.e("BPM_DEBUG", "=== onCreate PHASE 1 OK ===")
         } catch (e: Exception) {
@@ -283,21 +305,103 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
             Log.e("BPM_CRASH", "handleViewIntent CRASH: ${e.javaClass.simpleName}: ${e.message}", e)
         }
         try {
-        // ItemTouchHelper para reordenação manual e swipe para remover
-        itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
-            ItemTouchHelper.UP or ItemTouchHelper.DOWN,
-            ItemTouchHelper.RIGHT
-        ) {
-            override fun onMove(
-                rv: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder,
-                target: RecyclerView.ViewHolder
-            ): Boolean {
-                if (sortMode != SortMode.MANUAL) return false
-                songAdapter.moveItem(viewHolder.adapterPosition, target.adapterPosition)
+            lifecycleScope.launch(Dispatchers.IO) {
+                SeparationEngine.initialize(this@MainActivity, object : SeparationEngine.InitializationListener {
+                    override fun onInitialized(success: Boolean) {
+                        handler.post {
+                            if (success) {
+                                Log.i("BPM_DEBUG", "SeparationEngine initialized successfully")
+                            } else {
+                                Log.e("BPM_DEBUG", "SeparationEngine initialization failed")
+                            }
+                            updateSeparateStemsButtonState()
+                        }
+                    }
+                })
+                // The synchronous version returns immediately, listener is called on completion
+            }
+            ensureAudioPermissionAndLoad()
+            applyBpm(binding.bpmSlider.value)
+            setRepeatVisualState()
+            updateLoopAllVisual()
+
+            // Edge-to-edge: main content draws behind status bar, bottom bar above nav bar
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            
+            // Main content: top inset for status bar, bottom inset for navigation bar
+            ViewCompat.setOnApplyWindowInsetsListener(binding.mainContent) { v, insets ->
+                val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+                val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+                val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+                val bottomInset = max(navBars.bottom, ime.bottom)
+                v.setPadding(statusBars.left, statusBars.top, statusBars.right, bottomInset)
+                insets
+            }
+            
+            // Drawer: full system bars insets
+            ViewCompat.setOnApplyWindowInsetsListener(binding.drawerView) { v, insets ->
+                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+                insets
+            }
+            
+            Log.e("BPM_DEBUG", "=== onCreate END SUCCESS ===")
+        } catch (e: Exception) {
+            Log.e("BPM_CRASH", "onCreate PHASE 2 CRASH: ${e.javaClass.simpleName}: ${e.message}", e)
+            throw e
+        }
+    }
+
+    private fun setupDrawer() {
+        val drawerLayout = binding.drawerLayout
+        // Garante que o ícone do menu (hambúrguer) esteja sempre visível
+        binding.toolbar.setNavigationIcon(R.drawable.ic_menu)
+        binding.toolbar.setNavigationOnClickListener {
+            if (drawerLayout.isDrawerOpen(binding.drawerView)) {
+                drawerLayout.closeDrawer(binding.drawerView)
+            } else {
+                drawerLayout.openDrawer(binding.drawerView)
+            }
+        }
+    }
+
+    private fun setupRecyclerViews() {
+        songAdapter = SongAdapter()
+        binding.drawerSongList.layoutManager = LinearLayoutManager(this)
+        binding.drawerSongList.adapter = songAdapter
+        binding.drawerSongList.setHasFixedSize(true)
+
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                handleRecyclerViewTap(e, false)
                 return true
             }
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                handleRecyclerViewTap(e, true)
+                return true
+            }
+        })
 
+        binding.drawerSongList.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                gestureDetector.onTouchEvent(e)
+                return false
+            }
+            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
+                gestureDetector.onTouchEvent(e)
+            }
+            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) = Unit
+        })
+
+        itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN, ItemTouchHelper.RIGHT
+        ) {
+            override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
+                if (sortMode != SortMode.MANUAL) return false
+                songAdapter.moveItem(vh.adapterPosition, target.adapterPosition)
+                return true
+            }
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val pos = viewHolder.adapterPosition
                 if (pos == RecyclerView.NO_POSITION) return
@@ -305,9 +409,9 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
                 if (pos < 0 || pos >= songs.size) return
                 val removed = songs.removeAt(pos)
                 songAdapter.setSongs(songs)
-                // Se a música removida era a que estava tocando, para o player
                 if (removed.uri == playingSongUri) {
                     exoPlayer?.pause()
+                    stemPlayerSync?.pause()
                     playingSongUri = null
                     selectedSongUri = null
                     binding.trackTitle.text = getString(R.string.empty_title)
@@ -317,122 +421,54 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
                     binding.trackSlider.value = 0f
                     binding.trackSlider.isEnabled = false
                     handler.removeCallbacks(positionUpdater)
+                    updateSeparateStemsButtonState()
                 }
-                // Se era a selecionada, limpa seleção
                 if (removed.uri == selectedSongUri) {
                     selectedSongUri = null
                 }
                 updateEmptyState()
             }
-
             override fun isLongPressDragEnabled(): Boolean = sortMode == SortMode.MANUAL
-
             override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float = 0.4f
-
-            override fun onChildDraw(
-                c: android.graphics.Canvas,
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder,
-                dX: Float,
-                dY: Float,
-                actionState: Int,
-                isCurrentlyActive: Boolean
-            ) {
+            override fun onChildDraw(c: android.graphics.Canvas, rv: RecyclerView, vh: RecyclerView.ViewHolder, dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean) {
                 if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
-                    val itemView = viewHolder.itemView
+                    val itemView = vh.itemView
                     val icon = ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_delete)
                     icon?.let {
                         val iconMargin = (itemView.height - it.intrinsicHeight) / 2
                         val iconTop = itemView.top + iconMargin
                         val iconBottom = iconTop + it.intrinsicHeight
-
                         if (dX > 0) {
-                            // Swipe para a direita: ícone à esquerda do item
                             val iconLeft = itemView.left + iconMargin
                             val iconRight = iconLeft + it.intrinsicWidth
                             it.setBounds(iconLeft, iconTop, iconRight, iconBottom)
                             it.setTint(ContextCompat.getColor(this@MainActivity, android.R.color.white))
                         }
-
-                        // Desenha fundo vermelho
                         val bg = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_swipe_delete)
                         bg?.setBounds(itemView.left, itemView.top, itemView.left + dX.toInt(), itemView.bottom)
                         bg?.draw(c)
-
-                        // Desenha ícone (se visível)
                         if (dX > iconMargin + it.intrinsicWidth) {
                             it.draw(c)
                         }
                     }
                 }
-                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
+                super.onChildDraw(c, rv, vh, dX, dY, actionState, isCurrentlyActive)
             }
         })
-        itemTouchHelper?.attachToRecyclerView(binding.songList)
+        itemTouchHelper?.attachToRecyclerView(binding.drawerSongList)
+    }
 
-        // Setup gesture detector for RecyclerView items
-        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent): Boolean = true
+    private fun setupStemsAdapter() {
+        stemsAdapter = StemsAdapter(
+            onMuteClick = { index -> onStemMuteClick(index) },
+            onSoloClick = { index -> onStemSoloClick(index) },
+            onVolumeChange = { index, volume -> onStemVolumeChange(index, volume) }
+        )
+        binding.stemsRecycler.layoutManager = LinearLayoutManager(this)
+        binding.stemsRecycler.adapter = stemsAdapter
+    }
 
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                handleRecyclerViewTap(e, false)
-                return true
-            }
-
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                handleRecyclerViewTap(e, true)
-                return true
-            }
-        })
-
-        // Listener customizado (não SimpleOnItemTouchListener) para garantir
-        // que tanto intercept quanto touch sejam roteados ao GestureDetector.
-        // Sem isso, o double-tap falha porque o GestureDetector não recebe
-        // o ACTION_UP do segundo toque quando onIntercept retorna true.
-        binding.songList.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
-            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-                // Encaminha sempre ao detector; o detector decide o que é tap/double-tap.
-                gestureDetector.onTouchEvent(e)
-                // Não retornamos true: deixamos o RecyclerView tratar long-press/drag
-                // do ItemTouchHelper. Se um double-tap for detectado, o gesto será
-                // curto o suficiente para o drag nunca disparar.
-                return false
-            }
-
-            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
-                // Encaminha eventos subsequentes ao detector para que ele possa
-                // identificar o segundo ACTION_DOWN do double-tap.
-                gestureDetector.onTouchEvent(e)
-            }
-
-            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) = Unit
-        })
-
-        // Botão de ordenação
-        binding.sortLabel.setOnClickListener { view ->
-            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            showSortDialog()
-        }
-
-        // Permissão + carga inicial
-        ensureAudioPermissionAndLoad()
-
-        binding.bpmSlider.setLabelFormatter { value ->
-            String.format(Locale.US, "%.0f BPM", value)
-        }
-        binding.bpmSlider.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) applyBpm(value)
-        }
-
-        binding.bpmMinusButton.setOnTouchListener(createBpmHoldTouchListener(-1f))
-        binding.bpmPlusButton.setOnTouchListener(createBpmHoldTouchListener(1f))
-        binding.bpmResetButton.setOnClickListener { view ->
-            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            val reference = if (detectedBpm > 0f) detectedBpm else binding.bpmSlider.value
-            binding.bpmSlider.value = reference.toInt().coerceIn(40, 200).toFloat()
-            applyBpm(reference)
-        }
-
+    private fun setupPlayerControls() {
         binding.selectButton.setOnClickListener { checkPermissionAndPickFile() }
         binding.repeatButton.setOnClickListener { view ->
             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -442,38 +478,42 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             toggleLoopAll()
         }
-
+        binding.playFab.setOnClickListener { view ->
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            togglePlayPause()
+        }
+        binding.separateStemsButton.setOnClickListener { view ->
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            playingSongUri?.let { startStemSeparation(it) }
+        }
         binding.trackSlider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) {
-                exoPlayer?.let { player ->
-                    if (player.duration > 0) {
-                        player.seekTo((value / 1000f * player.duration).toLong())
-                    }
-                }
+                val targetMs = (value / 1000f * (stemPlayerSync?.duration() ?: exoPlayer?.duration ?: 0)).toLong()
+                stemPlayerSync?.seekTo(targetMs)
+                exoPlayer?.seekTo(targetMs)
             }
         }
+    }
 
-        applyBpm(binding.bpmSlider.value)
-        setRepeatVisualState()
-        updateLoopAllVisual()
-
-        // Edge-to-edge: conteúdo ocupa a tela inteira, barras do sistema são transparentes
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
+    private fun setupBpmControls() {
+        binding.bpmSlider.setLabelFormatter { value ->
+            String.format(Locale.US, "%.0f BPM", value)
         }
-        Log.e("BPM_DEBUG", "=== onCreate END SUCCESS ===")
-        } catch (e: Exception) {
-            Log.e("BPM_CRASH", "onCreate PHASE 2 CRASH: ${e.javaClass.simpleName}: ${e.message}", e)
-            throw e
+        binding.bpmSlider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) applyBpm(value)
+        }
+        binding.bpmMinusButton.setOnTouchListener(createBpmHoldTouchListener(-1f))
+        binding.bpmPlusButton.setOnTouchListener(createBpmHoldTouchListener(1f))
+        binding.bpmResetButton.setOnClickListener { view ->
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            val reference = if (detectedBpm > 0f) detectedBpm else binding.bpmSlider.value
+            binding.bpmSlider.value = reference.toInt().coerceIn(40, 200).toFloat()
+            applyBpm(reference)
         }
     }
 
     override fun onResume() {
         super.onResume()
-        // Se a permissão foi concedida enquanto estávamos fora da activity, recarrega.
         if (hasAudioPermission() && songAdapter.songsList().isEmpty()) {
             loadSongs()
         }
@@ -489,9 +529,7 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
 
     private fun toggleRepeat() {
         isRepeating = !isRepeating
-        if (isRepeating) {
-            isLoopingAll = false  // exclusão mútua
-        }
+        if (isRepeating) isLoopingAll = false
         exoPlayer?.repeatMode = if (isRepeating) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         setRepeatVisualState()
         updateLoopAllVisual()
@@ -499,71 +537,66 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
 
     private fun toggleLoopAll() {
         isLoopingAll = !isLoopingAll
-        if (isLoopingAll) {
-            isRepeating = false  // exclusão mútua
-        }
+        if (isLoopingAll) isRepeating = false
         setRepeatVisualState()
         updateLoopAllVisual()
     }
 
     private fun updateLoopAllVisual() {
-        if (isLoopingAll) {
-            binding.loopAllButton.iconTint = ColorStateList.valueOf(
-                ContextCompat.getColor(this, R.color.accent)
-            )
-        } else {
-            binding.loopAllButton.iconTint = ColorStateList.valueOf(
-                ContextCompat.getColor(this, R.color.text_secondary)
-            )
-        }
+        binding.loopAllButton.iconTint = ColorStateList.valueOf(
+            ContextCompat.getColor(this, if (isLoopingAll) R.color.accent else R.color.text_secondary)
+        )
     }
 
     private fun setRepeatVisualState() {
-        if (isRepeating) {
-            binding.repeatButton.iconTint = ColorStateList.valueOf(
-                ContextCompat.getColor(this, R.color.accent)
-            )
+        binding.repeatButton.iconTint = ColorStateList.valueOf(
+            ContextCompat.getColor(this, if (isRepeating) R.color.accent else R.color.text_secondary)
+        )
+    }
+
+    private fun updateSeparateStemsButtonState() {
+        val hasPlayingTrack = playingSongUri != null
+        val engineReady = SeparationEngine.isInitialized()
+        val alreadySeparated = stemPlayerSync != null
+        val isCurrentlySeparating = isSeparating
+
+        // Button enabled only if track playing, model ready, not already separated, not currently separating
+        binding.separateStemsButton.isEnabled = hasPlayingTrack && engineReady && !alreadySeparated && !isCurrentlySeparating
+        binding.separateStemsButton.visibility = if (hasPlayingTrack && !alreadySeparated) View.VISIBLE else View.GONE
+
+        if (alreadySeparated) {
+            binding.separateStemsButton.text = getString(R.string.stems_section_title)
+        } else if (isCurrentlySeparating) {
+            binding.separateStemsButton.text = getString(R.string.status_separating, 0)
+        } else if (!engineReady) {
+            binding.separateStemsButton.text = "Carregando modelo..."
         } else {
-            binding.repeatButton.iconTint = ColorStateList.valueOf(
-                ContextCompat.getColor(this, R.color.text_secondary)
-            )
+            binding.separateStemsButton.text = getString(R.string.btn_separate_stems)
         }
     }
 
     private fun applyBpm(targetBpm: Float) {
         binding.bpmValue.text = String.format(Locale.US, "%.0f", targetBpm)
         pulseBpmValue()
-
         val referenceBpm = if (detectedBpm > 0f) detectedBpm else targetBpm
         val speed = (targetBpm / referenceBpm).coerceIn(0.25f, 4.0f)
-
         exoPlayer?.setPlaybackSpeed(speed)
-
-        // Atualiza o status embaixo do nome da música com BPM detectado + atual
         if (detectedBpm > 0f) {
             binding.trackStatus.text = getString(R.string.status_bpm_detected, detectedBpm, targetBpm)
         } else {
             binding.trackStatus.text = getString(R.string.status_bpm_manual, targetBpm)
         }
-
         val description = when {
             speed > 1.01f -> "mais rápido"
             speed < 0.99f -> "mais lento"
             else -> "tempo original"
         }
-        binding.tempoFactorValue.text =
-            String.format(Locale.US, "%.2f× · %s", speed, description)
+        binding.tempoFactorValue.text = String.format(Locale.US, "%.2f× · %s", speed, description)
     }
 
     private fun pulseBpmValue() {
-        ObjectAnimator.ofFloat(binding.bpmValue, "scaleX", 1f, 1.05f, 1f).apply {
-            duration = 180
-            start()
-        }
-        ObjectAnimator.ofFloat(binding.bpmValue, "scaleY", 1f, 1.05f, 1f).apply {
-            duration = 180
-            start()
-        }
+        ObjectAnimator.ofFloat(binding.bpmValue, "scaleX", 1f, 1.05f, 1f).apply { duration = 180; start() }
+        ObjectAnimator.ofFloat(binding.bpmValue, "scaleY", 1f, 1.05f, 1f).apply { duration = 180; start() }
     }
 
     private fun audioPermission(): String =
@@ -592,29 +625,20 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
         when (requestCode) {
             1001 -> if (granted) filePickerLauncher.launch("audio/*")
             1002 -> if (granted) loadSongs()
-            1003 -> { /* visualizador removido */ }
+            1003 -> { }
         }
     }
 
     private fun onFilePicked(uri: Uri) {
         handler.removeCallbacks(positionUpdater)
         playingSongUri = uri
-        // Garante que a faixa esteja presente na lista de músicas do dispositivo.
         ensureSongInList(uri)
-        // Resolve o nome de exibição da URI de forma robusta:
-        // 1) tenta DISPLAY_NAME do content provider (caminho mais confiável)
-        // 2) tenta a lista de músicas (MediaStore)
-        // 3) extrai do path como último recurso
         binding.trackTitle.text = resolveTrackTitle(uri)
         binding.trackStatus.text = getString(R.string.status_analyzing)
         binding.trackSlider.value = 0f
@@ -623,16 +647,18 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         binding.trackTimeTotal.text = "--:--"
         detectedBpm = 0f
         currentArtist = null
+        binding.stemsSection.visibility = android.view.View.GONE
+        binding.separationProgressLayout.visibility = android.view.View.GONE
+        isSeparating = false
+        separationJob?.cancel()
 
-        // Libera qualquer player anterior antes de criar o novo.
         exoPlayer?.release()
         exoPlayer = null
+        stemPlayerSync?.release()
+        stemPlayerSync = null
 
-        // ====== PASSO 1: tocar IMEDIATAMENTE ======
-        // A música começa a tocar imediatamente, sem esperar BPM.
         startPlayback(uri)
 
-        // ====== PASSO 2: detectar BPM em paralelo (não bloqueia reprodução) ======
         lifecycleScope.launch(Dispatchers.IO) {
             var pcm: AudioDecoder.PcmData? = null
             try {
@@ -640,18 +666,14 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
             } catch (e: Exception) {
                 Log.e("BPM_DECODE", "onFilePicked decode exception: ${e.javaClass.simpleName}: ${e.message}")
             }
-
             val result = pcm?.let { BpmDetector.detect(it.samples, it.sampleRate) }
-
             withContext(Dispatchers.Main) {
                 if (isDestroyed || isFinishing || uri != playingSongUri) return@withContext
                 if (result != null && result.confidence > 0f) {
                     detectedBpm = result.bpm
                     binding.bpmSlider.value = (result.bpm + 0.5f).toInt().coerceIn(40, 200).toFloat()
                     applyBpm(result.bpm)
-                    // Atualiza status DEPOIS do slider ser ajustado
-                    binding.trackStatus.text =
-                        getString(R.string.status_bpm_detected, result.bpm, binding.bpmSlider.value)
+                    binding.trackStatus.text = getString(R.string.status_bpm_detected, result.bpm, binding.bpmSlider.value)
                 } else {
                     detectedBpm = if (binding.bpmSlider.value > 0f) binding.bpmSlider.value else 100f
                     applyBpm(detectedBpm)
@@ -660,8 +682,6 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
             }
         }
 
-        // Extrai metadados (título/autor) em paralelo — MediaMetadataRetriever
-        // usa um caminho separado e não conflita com o decoder.
         lifecycleScope.launch(Dispatchers.IO) {
             val fallbackTitle = withContext(Dispatchers.Main) { resolveTrackTitle(uri) }
             try {
@@ -671,12 +691,8 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
                 val metaArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                 val metaAlbum = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
                 val metaArtistName = metaArtist?.trim().orEmpty().ifEmpty { metaAlbum?.trim().orEmpty() }
-
-                val displayTitle = metaTitle?.trim()?.takeIf { it.isNotEmpty() }
-                    ?: fallbackTitle
-
+                val displayTitle = metaTitle?.trim()?.takeIf { it.isNotEmpty() } ?: fallbackTitle
                 val finalArtist = metaArtistName
-
                 withContext(Dispatchers.Main) {
                     binding.trackTitle.text = displayTitle
                     currentArtist = finalArtist
@@ -691,21 +707,209 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
                 }
             }
         }
+
+        updateSeparateStemsButtonState()
     }
 
-    /**
-     * Resolve o título de exibição de uma URI de áudio.
-     *
-     * Ordem de prioridade:
-     *  1. Título encontrado no MediaStore (lista de músicas do dispositivo)
-     *  2. Coluna DISPLAY_NAME do content provider (nome real do arquivo)
-     *  3. Fallback baseado no último segmento da URI
-     */
-    private fun resolveTrackTitle(uri: Uri): String {
-        // 1. Procura na lista de músicas (mais confiável quando há metadados ID3)
-        songAdapter.songsList().firstOrNull { it.uri == uri }?.title?.let { return it }
+    private fun startPlayback(uri: Uri) {
+        if (uri != playingSongUri) return
+        try {
+            exoPlayer = ExoPlayer.Builder(this).build().also { player ->
+                player.repeatMode = if (isRepeating) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+                player.setMediaItem(MediaItem.fromUri(uri))
+                player.prepare()
+                player.playWhenReady = true
+                player.addListener(object : Player.Listener {
+                    override fun onIsPlayingChanged(isPlaying: Boolean) {
+                        val currentTitle = binding.trackTitle.text.toString()
+                        if (currentTitle.isBlank() || currentTitle == getString(R.string.empty_title)) {
+                            playingSongUri?.let { binding.trackTitle.text = resolveTrackTitle(it) }
+                        }
+                        updatePlayFab(isPlaying)
+                        val playingIndex = songAdapter.songsList().indexOfFirst { it.uri == playingSongUri }
+                        if (isPlaying) {
+                            if (playingIndex >= 0) songAdapter.setPlayingPosition(playingIndex)
+                        } else {
+                            songAdapter.setPlayingPosition(RecyclerView.NO_POSITION)
+                        }
+                    }
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        when (playbackState) {
+                            Player.STATE_READY -> {
+                                binding.trackSlider.isEnabled = true
+                                binding.trackTimeTotal.text = formatTime(player.duration)
+                                val currentTitle = binding.trackTitle.text.toString()
+                                if (currentTitle.isBlank() || currentTitle == getString(R.string.empty_title)) {
+                                    playingSongUri?.let { binding.trackTitle.text = resolveTrackTitle(it) }
+                                }
+                                applyBpm(binding.bpmSlider.value)
+                                handler.post(positionUpdater)
+                            }
+                            Player.STATE_ENDED -> {
+                                if (player.repeatMode == Player.REPEAT_MODE_OFF) {
+                                    val advanced = playNextInQueue()
+                                    if (!advanced) {
+                                        player.playWhenReady = false
+                                        player.pause()
+                                        player.seekTo(0L)
+                                        binding.trackSlider.value = 0f
+                                        binding.trackTimeCurrent.text = "0:00"
+                                        updateSeparateStemsButtonState()
+                                    }
+                                }
+                            }
+                            else -> Unit
+                        }
+                    }
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        Log.e("BPM_PLAY", "PlaybackException: code=${error.errorCode}, name=${error.errorCodeName}, msg=${error.message}")
+                        binding.trackStatus.text = getString(R.string.toast_no_bpm)
+                        Snackbar.make(binding.root, "Falha ao reproduzir: ${error.errorCodeName}", Snackbar.LENGTH_LONG).show()
+                    }
+                })
+            }
+        } catch (e: Exception) {
+            Log.e("BPM_PLAY", "startPlayback falhou: ${e.javaClass.simpleName}: ${e.message}")
+            binding.trackStatus.text = "Falha ao iniciar player"
+            Snackbar.make(binding.root, "Falha ao reproduzir: ${e.javaClass.simpleName}", Snackbar.LENGTH_LONG).show()
+        }
+    }
 
-        // 2. DISPLAY_NAME via content provider
+    private fun updatePlayFab(isPlaying: Boolean) {
+        binding.playFab.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        binding.playFab.contentDescription = if (isPlaying) getString(R.string.cd_pause) else getString(R.string.cd_play)
+    }
+
+    private fun togglePlayPause() {
+        val exo = exoPlayer
+        val stem = stemPlayerSync
+        when {
+            exo == null && playingSongUri == null -> checkPermissionAndPickFile()
+            exo?.isPlaying == true -> {
+                exo.pause()
+                stem?.pause()
+            }
+            else -> {
+                if (exo?.playbackState == Player.STATE_ENDED) {
+                    exo.seekTo(0L)
+                }
+                exo?.play()
+                stem?.play()
+            }
+        }
+    }
+
+private fun startStemSeparation(uri: Uri) {
+        val engine = SeparationEngine
+        if (!engine.isInitialized()) {
+            Log.w(TAG, "Separation engine not initialized, skipping stem separation")
+            Snackbar.make(binding.root, "Modelo de separação não carregado", Snackbar.LENGTH_LONG).show()
+            return
+        }
+
+        isSeparating = true
+        updateSeparateStemsButtonState()
+        binding.separationProgressLayout.visibility = android.view.View.VISIBLE
+        binding.stemsSection.visibility = android.view.View.GONE
+        binding.separationProgressSlider.value = 0f
+        binding.separationProgressText.text = getString(R.string.status_separating, 0f)
+
+        separationJob = lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val pcm = AudioDecoder.decode(applicationContext, uri)
+                if (pcm == null) {
+                    withContext(Dispatchers.Main) {
+                        binding.separationProgressLayout.visibility = android.view.View.GONE
+                        isSeparating = false
+                        updateSeparateStemsButtonState()
+                    }
+                    return@launch
+                }
+
+                val result = engine.separate(
+                    context = applicationContext,
+                    samples = pcm.samples,
+                    sampleRate = pcm.sampleRate,
+                    progressListener = object : SeparationEngine.ProgressListener {
+                        override fun onProgress(progress: SeparationEngine.Progress) {
+                            handler.post {
+                                binding.separationProgressSlider.value = progress.percent.toFloat()
+                                binding.separationProgressText.text = progress.message
+                            }
+                        }
+                    }
+                )
+
+                withContext(Dispatchers.Main) {
+                    if (result == null || isDestroyed || isFinishing) {
+                        binding.separationProgressLayout.visibility = android.view.View.GONE
+                        isSeparating = false
+                        updateSeparateStemsButtonState()
+                        return@withContext
+                    }
+
+                    val cache = StemsCache
+                    launch(Dispatchers.IO) {
+                        cache.saveStems(
+                            context = applicationContext,
+                            uri = uri,
+                            drums = result.drums,
+                            bass = result.bass,
+                            other = result.other,
+                            vocals = result.vocals,
+                            sampleRate = result.sampleRate
+                        )
+                    }
+
+                    binding.separationProgressLayout.visibility = android.view.View.GONE
+                    binding.stemsSection.visibility = android.view.View.VISIBLE
+
+                    val cached = cache.getCachedStems(applicationContext, uri)
+                    if (cached != null && cached.size == 4) {
+                        val sync = StemPlayerSync(applicationContext)
+                        sync.prepareStems(cached, uri)
+                        stemPlayerSync = sync
+                        stemsAdapter.updateStems(StemTrack.ALL.toList())
+                        binding.trackStatus.text = getString(R.string.status_stems_ready)
+                    } else {
+                        binding.trackStatus.text = getString(R.string.toast_no_bpm)
+                    }
+                    isSeparating = false
+                    updateSeparateStemsButtonState()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Stem separation failed: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    binding.separationProgressLayout.visibility = android.view.View.GONE
+                    isSeparating = false
+                    updateSeparateStemsButtonState()
+                    Snackbar.make(binding.root, "Falha na separação: ${e.message}", Snackbar.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun onStemMuteClick(index: Int) {
+        stemPlayerSync?.toggleMute(index)
+        val state = stemPlayerSync?.getStemStates()?.getOrNull(index) ?: return
+        stemsAdapter.updateStemState(index, state.track)
+    }
+
+    private fun onStemSoloClick(index: Int) {
+        stemPlayerSync?.toggleSolo(index)
+        val state = stemPlayerSync?.getStemStates()?.getOrNull(index) ?: return
+        stemsAdapter.updateStemState(index, state.track)
+        stemPlayerSync?.getStemStates()?.forEachIndexed { i, s ->
+            if (i != index) stemsAdapter.updateStemState(i, s.track)
+        }
+    }
+
+    private fun onStemVolumeChange(index: Int, volume: Float) {
+        stemPlayerSync?.setStemVolume(index, volume)
+    }
+
+    private fun resolveTrackTitle(uri: Uri): String {
+        songAdapter.songsList().firstOrNull { it.uri == uri }?.title?.let { return it }
         try {
             contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
                 if (c.moveToFirst()) {
@@ -716,11 +920,7 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
                     }
                 }
             }
-        } catch (_: Exception) {
-            // alguns providers não suportam — segue
-        }
-
-        // 3. Fallback: extrai o último segmento da URI
+        } catch (_: Exception) { }
         return stripExtension(uri.lastPathSegment ?: uri.toString())
     }
 
@@ -729,100 +929,6 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         return if (dot > 0) name.substring(0, dot) else name
     }
 
-    /**
-     * Cria o ExoPlayer e inicia a reprodução.
-     * Chamado IMEDIATAMENTE ao selecionar uma música — sem esperar BPM.
-     * Runs independently from the BPM decode thread (no MediaCodec conflict
-     * because each MediaCodec instance is independent; Android manages them).
-     */
-    private fun startPlayback(uri: Uri) {
-        // Aborta se o usuário já selecionou outra música enquanto a detecção rodava.
-        if (uri != playingSongUri) return
-
-        // Safety: se algo falhar, não crash — apenas volta ao estado anterior.
-        try {
-
-        exoPlayer = ExoPlayer.Builder(this).build().also { player ->
-            player.repeatMode =
-                if (isRepeating) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-            player.setMediaItem(MediaItem.fromUri(uri))
-            player.prepare()
-            player.playWhenReady = true
-
-            player.addListener(object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    // Garante que o nome da música esteja visível.
-                    val currentTitle = binding.trackTitle.text.toString()
-                    if (currentTitle.isBlank() || currentTitle == getString(R.string.empty_title)) {
-                        playingSongUri?.let { binding.trackTitle.text = resolveTrackTitle(it) }
-                    }
-
-                    // Sincroniza ícone da linha da lista com play/pause
-                    val playingIndex = songAdapter.songsList().indexOfFirst { it.uri == playingSongUri }
-                    if (isPlaying) {
-                        if (playingIndex >= 0) songAdapter.setPlayingPosition(playingIndex)
-                    } else {
-                        // Ao pausar, mantém o destaque "selected" (selectedSongUri)
-                        // mas limpa o destaque "playing" — assim o ícone volta a "play".
-                        songAdapter.setPlayingPosition(RecyclerView.NO_POSITION)
-                    }
-                }
-
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    when (playbackState) {
-                        Player.STATE_READY -> {
-                            binding.trackSlider.isEnabled = true
-                            binding.trackTimeTotal.text = formatTime(player.duration)
-                            // Reforça o nome da faixa se ainda estiver vazio.
-                            val currentTitle = binding.trackTitle.text.toString()
-                            if (currentTitle.isBlank() || currentTitle == getString(R.string.empty_title)) {
-                                playingSongUri?.let { binding.trackTitle.text = resolveTrackTitle(it) }
-                            }
-                            // Aplica a velocidade detectada agora que o player está estável.
-                            applyBpm(binding.bpmSlider.value)
-                            handler.post(positionUpdater)
-                        }
-                        Player.STATE_ENDED -> {
-                            // Com loop ativo o ExoPlayer já reinicia sozinho; sem loop
-                            // tentamos tocar a próxima música da lista para manter a
-                            // sequência escolhida pelo usuário. Se não houver próxima,
-                            // deixamos a faixa pausada no início, com a UI em estado
-                            // "pronto para tocar de novo" — sem fechar nada.
-                            if (player.repeatMode == Player.REPEAT_MODE_OFF) {
-                                val advanced = playNextInQueue()
-                                if (!advanced) {
-                                    player.playWhenReady = false
-                                    player.pause()
-                                    player.seekTo(0L)
-                                    binding.trackSlider.value = 0f
-                                    binding.trackTimeCurrent.text = "0:00"
-                                }
-                            }
-                        }
-                        else -> Unit
-                    }
-                }
-
-                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    Log.e("BPM_PLAY", "PlaybackException: code=${error.errorCode}, name=${error.errorCodeName}, msg=${error.message}")
-                    binding.trackStatus.text = getString(R.string.toast_no_bpm)
-                    Snackbar.make(binding.root, "Falha ao reproduzir (erro do player): ${error.errorCodeName}", Snackbar.LENGTH_LONG).show()
-                }
-            })
-        }
-        } catch (e: Exception) {
-            Log.e("BPM_PLAY", "startPlayback falhou: ${e.javaClass.simpleName}: ${e.message}")
-            binding.trackStatus.text = "Falha ao iniciar player"
-            Snackbar.make(binding.root, "Falha ao reproduzir: ${e.javaClass.simpleName}", Snackbar.LENGTH_LONG).show()
-        }
-    }
-
-    /**
-     * Garante que a URI esteja presente na lista visível. Se já existir,
-     * apenas atualiza o destaque (selecionado/tocando). Caso contrário,
-     * lê título/artista/duração em background e adiciona à lista,
-     * respeitando o modo de ordenação atual.
-     */
     private fun ensureSongInList(uri: Uri) {
         val existingIndex = songAdapter.songsList().indexOfFirst { it.uri == uri }
         if (existingIndex >= 0) {
@@ -830,8 +936,6 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
             songAdapter.setPlayingPosition(existingIndex)
             return
         }
-
-        // Lê metadados em background para não travar a UI.
         lifecycleScope.launch(Dispatchers.IO) {
             var title = ""
             var artist = ""
@@ -839,23 +943,15 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
             try {
                 val retriever = MediaMetadataRetriever()
                 retriever.setDataSource(applicationContext, uri)
-                title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                    ?.trim().orEmpty()
-                artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
-                    ?.trim().orEmpty()
-                    .ifEmpty {
-                        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
-                            ?.trim().orEmpty()
-                    }
+                title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.trim().orEmpty()
+                artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)?.trim().orEmpty()
+                    .ifEmpty { retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)?.trim().orEmpty() }
                 val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 duration = durStr?.toLongOrNull() ?: 0L
                 retriever.release()
-            } catch (_: Exception) {
-                // ignora: usaremos fallbacks abaixo
-            }
+            } catch (_: Exception) { }
             if (title.isEmpty()) title = resolveTrackTitle(uri)
             if (artist == "<unknown>") artist = ""
-
             withContext(Dispatchers.Main) {
                 val songs = songAdapter.songsList().toMutableList()
                 if (songs.any { it.uri == uri }) {
@@ -883,9 +979,6 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         if (songs.isEmpty()) return false
         val idx = songs.indexOfFirst { it.uri == current }
         if (idx < 0) return false
-
-        // Se "Tocar todas em sequência" estiver ligado, volta ao início
-        // ao chegar na última; caso contrário, para na última.
         val nextIdx = when {
             idx < songs.size - 1 -> idx + 1
             isLoopingAll -> 0
@@ -903,7 +996,6 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         lifecycleScope.launch(Dispatchers.IO) {
             val songs = mutableListOf<Song>()
             val seenPaths = mutableSetOf<String>()
-
             val projection = arrayOf(
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.TITLE,
@@ -917,10 +1009,7 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
                 Log.i("BPM_MUSIC", "Iniciando query MediaStore: $selection")
                 contentResolver.query(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    projection,
-                    selection,
-                    null,
-                    sortOrder
+                    projection, selection, null, sortOrder
                 )?.use { cursor ->
                     val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
                     val titleCol = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)
@@ -935,7 +1024,6 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
                         val duration = cursor.getLong(durCol)
                         val filePath = if (dataCol >= 0) cursor.getString(dataCol) ?: "" else ""
                         if (filePath.isNotBlank() && isAudioFromMessagingApp(filePath)) {
-                            // Ignora áudio de apps de mensagem via MediaStore
                             Log.d("BPM_MUSIC", "Ignorado (messaging): $title | $filePath")
                         } else {
                             val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id.toString())
@@ -967,20 +1055,16 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
             storageDirs.distinct().forEach { dir ->
                 try {
                     val countBefore = songs.size
-                    dir.walkTopDown()
-                        .maxDepth(6)
-                        .filter { f ->
-                            f.isFile &&
-                            !isIgnoredAudioFile(f.absolutePath)
-                        }
-                        .forEach audioEach@{ audioFile ->
-                            if (seenPaths.contains(audioFile.absolutePath)) return@audioEach
-                            val path = audioFile.absolutePath
-                            val title = audioFile.nameWithoutExtension
-                            val uri = Uri.fromFile(audioFile)
-                            seenPaths.add(path)
-                            songs.add(Song(uri, title, "", 0L, path))
-                        }
+                    dir.walkTopDown().maxDepth(6).filter { f ->
+                        f.isFile && !isIgnoredAudioFile(f.absolutePath)
+                    }.forEach audioEach@{ audioFile ->
+                        if (seenPaths.contains(audioFile.absolutePath)) return@audioEach
+                        val path = audioFile.absolutePath
+                        val title = audioFile.nameWithoutExtension
+                        val uri = Uri.fromFile(audioFile)
+                        seenPaths.add(path)
+                        songs.add(Song(uri, title, "", 0L, path))
+                    }
                     val added = songs.size - countBefore
                     if (added > 0) Log.i("BPM_MUSIC", "Varredura $dir: +$added música(s)")
                 } catch (e: Exception) {
@@ -994,7 +1078,7 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
                 songAdapter.setSongs(sorted)
                 updateEmptyState()
                 if (sorted.isNotEmpty()) {
-                    binding.trackStatus.text = "${sorted.size} música(s) encontrada(s) — dispositivo + SD card + armazenamento"
+                    binding.trackStatus.text = "${sorted.size} música(s) encontrada(s)"
                 } else {
                     binding.trackStatus.text = "Nenhuma música encontrada (verifique permissão de áudio)"
                 }
@@ -1002,18 +1086,15 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         }
     }
 
-    /** Aplica o modo de ordenação atual sobre uma cópia mutável da lista. */
-    /** Filtra áudio de apps de mensagem (WhatsApp, Telegram, etc.) por caminho. */
     private fun isAudioFromMessagingApp(filePath: String): Boolean {
         val path = filePath.lowercase()
         return path.contains("/whatsapp/") ||
-               path.contains("/telegram/") ||
-               path.contains("/signal/") ||
-               path.contains("/messenger/") ||
-               path.contains("/discord/")
+                path.contains("/telegram/") ||
+                path.contains("/signal/") ||
+                path.contains("/messenger/") ||
+                path.contains("/discord/")
     }
 
-    /** Retorna true se o arquivo deve ser ignorado (não é música do usuário). */
     private fun isIgnoredAudioFile(filePath: String): Boolean {
         if (isAudioFromMessagingApp(filePath)) return true
         val ext = filePath.substringAfterLast('.', "").lowercase()
@@ -1021,19 +1102,11 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         return false
     }
 
-    /** Aplica o modo de ordenação atual sobre uma cópia mutável da lista. */
     private fun applySortInPlace(list: MutableList<Song>): List<Song> {
         when (sortMode) {
             SortMode.TITLE -> list.sortBy { it.title.lowercase(Locale.getDefault()) }
-            SortMode.ARTIST -> {
-                list.sortWith(compareBy(
-                    { it.artist.lowercase(Locale.getDefault()) },
-                    { it.title.lowercase(Locale.getDefault()) }
-                ))
-            }
-            SortMode.MANUAL -> {
-                // Em modo manual o adapter já mantém a ordem; aqui só retornamos como estão.
-            }
+            SortMode.ARTIST -> list.sortWith(compareBy({ it.artist.lowercase(Locale.getDefault()) }, { it.title.lowercase(Locale.getDefault()) }))
+            SortMode.MANUAL -> { }
         }
         return list
     }
@@ -1041,33 +1114,21 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
     private fun updateEmptyState() {
         val isEmpty = songAdapter.songsList().isEmpty()
         if (isEmpty) {
-            binding.emptySongList.text = if (hasAudioPermission()) {
-                getString(R.string.empty_song_list)
-            } else {
-                getString(R.string.empty_song_list_no_permission)
-            }
+            binding.emptySongList.text = if (hasAudioPermission()) getString(R.string.empty_song_list) else getString(R.string.empty_song_list_no_permission)
             binding.emptySongList.visibility = View.VISIBLE
-            binding.songList.visibility = View.GONE
+            binding.drawerSongList.visibility = View.GONE
         } else {
             binding.emptySongList.visibility = View.GONE
-            binding.songList.visibility = View.VISIBLE
+            binding.drawerSongList.visibility = View.VISIBLE
         }
     }
 
     private fun showSortDialog() {
-        val labels = arrayOf(
-            getString(R.string.sort_title),
-            getString(R.string.sort_artist),
-            getString(R.string.sort_manual)
-        )
+        val labels = arrayOf(getString(R.string.sort_title), getString(R.string.sort_artist), getString(R.string.sort_manual))
         AlertDialog.Builder(this)
             .setTitle(R.string.cd_sort)
             .setItems(labels) { _, which ->
-                val newMode = when (which) {
-                    0 -> SortMode.TITLE
-                    1 -> SortMode.ARTIST
-                    else -> SortMode.MANUAL
-                }
+                val newMode = when (which) { 0 -> SortMode.TITLE; 1 -> SortMode.ARTIST; else -> SortMode.MANUAL }
                 applySortMode(newMode)
             }
             .show()
@@ -1084,7 +1145,6 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         val current = songAdapter.songsList().toMutableList()
         val sorted = applySortInPlace(current)
         songAdapter.setSongs(sorted)
-        // Reaplica playing/selected se a música atual ainda estiver na lista.
         val playingIndex = sorted.indexOfFirst { it.uri == playingSongUri }
         if (playingIndex >= 0) songAdapter.setPlayingPosition(playingIndex)
         val selectedIndex = sorted.indexOfFirst { it.uri == selectedSongUri }
@@ -1092,22 +1152,17 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
     }
 
     private fun handleRecyclerViewTap(e: MotionEvent, isDoubleTap: Boolean) {
-        val recyclerView = binding.songList
-        // Usa as coordenadas do evento no RecyclerView diretamente
+        val recyclerView = binding.drawerSongList
         val child = recyclerView.findChildViewUnder(e.x, e.y) ?: return
         val position = recyclerView.getChildAdapterPosition(child)
         if (position == RecyclerView.NO_POSITION) return
-
         val song = songAdapter.getSongAt(position) ?: return
-
         if (isDoubleTap) {
-            // Double tap = play the song immediately
             selectedSongUri = song.uri
             songAdapter.setSelectedPosition(position)
             songAdapter.setPlayingPosition(position)
             onFilePicked(song.uri)
         } else {
-            // Single tap = select only
             selectedSongUri = song.uri
             songAdapter.setSelectedPosition(position)
         }
@@ -1125,10 +1180,7 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         popup.menuInflater.inflate(R.menu.menu_song_item, popup.menu)
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
-                R.id.action_delete -> {
-                    confirmDeleteSong(song, position)
-                    true
-                }
+                R.id.action_delete -> { confirmDeleteSong(song, position); true }
                 else -> false
             }
         }
@@ -1148,35 +1200,31 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         lifecycleScope.launch(Dispatchers.IO) {
             var deleted = false
             try {
-                // Tenta deletar pelo MediaStore (funciona no Android 10+)
                 val rows = contentResolver.delete(song.uri, null, null)
                 deleted = rows > 0
             } catch (_: Exception) { }
-
-            // Se o MediaStore falhou mas temos o caminho físico, tenta deletar o arquivo
             if (!deleted && song.filePath.isNotBlank()) {
                 try {
                     val file = java.io.File(song.filePath)
                     if (file.exists() && file.delete()) deleted = true
                 } catch (_: Exception) { }
             }
-
             withContext(Dispatchers.Main) {
                 if (deleted) {
                     val songs = songAdapter.songsList().toMutableList()
                     songs.removeAt(position)
                     songAdapter.setSongs(songs)
-                    // Para playback se for a música tocando
                     if (song.uri == playingSongUri) {
                         exoPlayer?.pause()
+                        stemPlayerSync?.pause()
                         playingSongUri = null
                         selectedSongUri = null
                         binding.trackTitle.text = getString(R.string.empty_title)
                         binding.trackStatus.text = getString(R.string.empty_hint)
-                        binding.trackSlider.value = 0f
-                        binding.trackSlider.isEnabled = false
                         binding.trackTimeCurrent.text = "0:00"
                         binding.trackTimeTotal.text = "--:--"
+                        binding.trackSlider.value = 0f
+                        binding.trackSlider.isEnabled = false
                         handler.removeCallbacks(positionUpdater)
                     }
                 } else {
@@ -1207,5 +1255,13 @@ Log.e("BPM_DEBUG", "RecyclerView OK")
         super.onDestroy()
         handler.removeCallbacks(positionUpdater)
         exoPlayer?.release()
+        exoPlayer = null
+        stemPlayerSync?.release()
+        stemPlayerSync = null
+        separationJob?.cancel()
+    }
+
+    companion object {
+        private const val TAG = "MainActivity"
     }
 }

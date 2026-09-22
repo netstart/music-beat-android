@@ -2,20 +2,24 @@
 <resources>
     <!-- Dimens base para telas de até 600dp de altura (portrait padrão) -->
     <dimen name="song_list_height">140dp</dimen>
-    <dimen name="footer_button_height">48dp</dimen>
-    <dimen name="hero_min_height">41dp</dimen>
-    <dimen name="hero_bpm_text_size">72sp</dimen>
-    <dimen name="hero_accent_circle_size">48dp</dimen>
-    <dimen name="hero_icon_size">24dp</dimen>
-    <dimen name="card_padding">4dp</dimen>
+    <dimen name="footer_button_height">40dp</dimen>
+    <dimen name="hero_min_height">110dp</dimen>
+    <dimen name="hero_bpm_text_size">64sp</dimen>
+    <dimen name="hero_accent_circle_size">44dp</dimen>
+    <dimen name="hero_icon_size">22dp</dimen>
+    <dimen name="card_padding">12dp</dimen>
     <dimen name="screen_padding_horizontal">16dp</dimen>
-    <dimen name="screen_padding_top">14dp</dimen>
-    <dimen name="card_margin_top">14dp</dimen>
+    <dimen name="screen_padding_top">8dp</dimen>
+    <dimen name="card_margin_top">12dp</dimen>
     <dimen name="bpm_button_size">36dp</dimen>
     <dimen name="bpm_reset_height">32dp</dimen>
-    <dimen name="footer_spacer">72dp</dimen>
+    <dimen name="bpm_controls_gap">8dp</dimen>
+    <dimen name="footer_spacer">16dp</dimen>
     <dimen name="playlist_label_size">11sp</dimen>
-    <dimen name="track_title_size">14sp</dimen>
-    <dimen name="song_icon_size">48dp</dimen>
+    <dimen name="track_title_size">15sp</dimen>
+    <dimen name="song_icon_size">40dp</dimen>
     <dimen name="song_drag_handle_size">48dp</dimen>
+    <dimen name="drawer_width">320dp</dimen>
+    <dimen name="stem_item_height">60dp</dimen>
+    <dimen name="track_time_size">12sp</dimen>
 </resources>

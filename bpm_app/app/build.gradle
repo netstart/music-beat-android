@@ -102,6 +102,10 @@ dependencies {
     implementation 'androidx.activity:activity-ktx:1.8.2'
     implementation 'androidx.fragment:fragment-ktx:1.6.2'
 
+    // ONNX Runtime Android — inference de separação de stems (htdemucs)
+    // onnxruntime-android suporta modelos ONNX padrão (onnxruntime-mobile só suporta ORT format)
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.17.0'
+
     // ── Testes instrumentados (UI) ──
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

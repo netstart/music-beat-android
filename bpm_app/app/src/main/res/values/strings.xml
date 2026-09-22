@@ -39,6 +39,8 @@
     <string name="cd_sort">Ordenar lista</string>
     <string name="cd_bpm_slider">Ajustar BPM</string>
     <string name="cd_track_slider">Barra de progresso da faixa</string>
+    <string name="cd_separate_stems">Separar faixas da música</string>
+    <string name="btn_separate_stems">Separar faixas</string>
     <string name="bpm_range_min">40</string>
     <string name="bpm_range_max">200</string>
     <string name="snackbar_bpm_detected">BPM detectado: %1$.1f</string>
@@ -48,4 +50,13 @@
     <string name="menu_delete_confirm_msg">Tem certeza que deseja excluir \"%1$s\" do dispositivo? Esta ação não pode ser desfeita.</string>
     <string name="toast_song_deleted">Música excluída</string>
     <string name="toast_delete_failed">Não foi possível excluir o arquivo</string>
+    <string name="drawer_playlist_title">Músicas do dispositivo</string>
+    <string name="cd_menu">Abrir menu de músicas</string>
+    <string name="status_separating">Separando faixas… %1$.0f%%</string>
+    <string name="status_stems_ready">Faixas separadas</string>
+    <string name="stems_section_title">Faixas separadas</string>
+    <string name="stem_drums">Drums</string>
+    <string name="stem_bass">Bass</string>
+    <string name="stem_other">Other</string>
+    <string name="stem_vocals">Vocals</string>
 </resources>

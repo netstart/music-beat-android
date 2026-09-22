@@ -23,3 +23,6 @@ Thumbs.db
 
 logs/*.log
 *.log
+
+# Modelo ONNX grande — rastrear via Git LFS ou baixar separadamente
+bpm_app/app/src/main/assets/models/htdemucs.onnx

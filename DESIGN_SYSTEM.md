@@ -36,7 +36,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 
 ---
 
-## 2. Anatomia da tela principal (padrão "Now Adjusting")
+## 2. Anatomia inicial da tela principal, as não limitada, esta pode mudar e ser atualizada (padrão "Now Adjusting")
 
 ```
 ┌─────────────────────────────────┐
