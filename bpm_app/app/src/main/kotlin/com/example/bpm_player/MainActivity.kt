@@ -41,14 +41,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.bpm_player.databinding.ActivityMainStemkitBinding
 import com.example.bpm_player.databinding.ItemSongBinding
-import com.example.bpm_player.stem.SeparationEngine
-import com.example.bpm_player.stem.StemPlayerSync
-import com.example.bpm_player.stem.StemsAdapter
-import com.example.bpm_player.stem.StemTrack
-import com.example.bpm_player.stem.StemsCache
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -72,11 +66,6 @@ class MainActivity : AppCompatActivity() {
     private val bpmHoldHandler = Handler(Looper.getMainLooper())
     private var bpmHoldRunnable: Runnable? = null
     private var bpmHoldDelta = 0f
-
-    private var stemPlayerSync: StemPlayerSync? = null
-    private lateinit var stemsAdapter: StemsAdapter
-    private var separationJob: Job? = null
-    private var isSeparating = false
 
     private fun createBpmHoldTouchListener(delta: Float): View.OnTouchListener {
         return View.OnTouchListener { view, event ->
@@ -117,15 +106,6 @@ class MainActivity : AppCompatActivity() {
                         .coerceIn(0f, 1000f)
                     binding.trackSlider.value = fraction
                     binding.trackTimeCurrent.text = formatTime(player.currentPosition)
-
-                    stemPlayerSync?.let { sync ->
-                        if (sync.isPlaying()) {
-                            val stemPos = sync.currentPosition()
-                            val stemFrac = (stemPos.toFloat() / sync.duration() * 1000f).coerceIn(0f, 1000f)
-                            binding.trackSlider.value = stemFrac
-                            binding.trackTimeCurrent.text = formatTime(stemPos)
-                        }
-                    }
                 }
             }
             handler.postDelayed(this, 500)
@@ -170,11 +150,9 @@ class MainActivity : AppCompatActivity() {
                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     if (isPlaying) {
                         exoPlayer?.pause()
-                        stemPlayerSync?.pause()
                         playingSongUri = null
                         setPlayingPosition(RecyclerView.NO_POSITION)
                         binding.songIcon.announceForAccessibility(getString(R.string.cd_pause))
-                        updateSeparateStemsButtonState()
                     } else {
                         selectedSongUri = song.uri
                         setSelectedPosition(position)
@@ -290,7 +268,6 @@ class MainActivity : AppCompatActivity() {
 
             setupDrawer()
             setupRecyclerViews()
-            setupStemsAdapter()
             setupPlayerControls()
             setupBpmControls()
 
@@ -305,21 +282,6 @@ class MainActivity : AppCompatActivity() {
             Log.e("BPM_CRASH", "handleViewIntent CRASH: ${e.javaClass.simpleName}: ${e.message}", e)
         }
         try {
-            lifecycleScope.launch(Dispatchers.IO) {
-                SeparationEngine.initialize(this@MainActivity, object : SeparationEngine.InitializationListener {
-                    override fun onInitialized(success: Boolean) {
-                        handler.post {
-                            if (success) {
-                                Log.i("BPM_DEBUG", "SeparationEngine initialized successfully")
-                            } else {
-                                Log.e("BPM_DEBUG", "SeparationEngine initialization failed")
-                            }
-                            updateSeparateStemsButtonState()
-                        }
-                    }
-                })
-                // The synchronous version returns immediately, listener is called on completion
-            }
             ensureAudioPermissionAndLoad()
             applyBpm(binding.bpmSlider.value)
             setRepeatVisualState()
@@ -411,7 +373,6 @@ class MainActivity : AppCompatActivity() {
                 songAdapter.setSongs(songs)
                 if (removed.uri == playingSongUri) {
                     exoPlayer?.pause()
-                    stemPlayerSync?.pause()
                     playingSongUri = null
                     selectedSongUri = null
                     binding.trackTitle.text = getString(R.string.empty_title)
@@ -421,7 +382,6 @@ class MainActivity : AppCompatActivity() {
                     binding.trackSlider.value = 0f
                     binding.trackSlider.isEnabled = false
                     handler.removeCallbacks(positionUpdater)
-                    updateSeparateStemsButtonState()
                 }
                 if (removed.uri == selectedSongUri) {
                     selectedSongUri = null
@@ -458,16 +418,6 @@ class MainActivity : AppCompatActivity() {
         itemTouchHelper?.attachToRecyclerView(binding.drawerSongList)
     }
 
-    private fun setupStemsAdapter() {
-        stemsAdapter = StemsAdapter(
-            onMuteClick = { index -> onStemMuteClick(index) },
-            onSoloClick = { index -> onStemSoloClick(index) },
-            onVolumeChange = { index, volume -> onStemVolumeChange(index, volume) }
-        )
-        binding.stemsRecycler.layoutManager = LinearLayoutManager(this)
-        binding.stemsRecycler.adapter = stemsAdapter
-    }
-
     private fun setupPlayerControls() {
         binding.selectButton.setOnClickListener { checkPermissionAndPickFile() }
         binding.repeatButton.setOnClickListener { view ->
@@ -482,14 +432,17 @@ class MainActivity : AppCompatActivity() {
             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             togglePlayPause()
         }
-        binding.separateStemsButton.setOnClickListener { view ->
+        binding.skipPreviousButton.setOnClickListener { view ->
             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            playingSongUri?.let { startStemSeparation(it) }
+            playPreviousInQueue()
+        }
+        binding.skipNextButton.setOnClickListener { view ->
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            playNextInQueue()
         }
         binding.trackSlider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) {
-                val targetMs = (value / 1000f * (stemPlayerSync?.duration() ?: exoPlayer?.duration ?: 0)).toLong()
-                stemPlayerSync?.seekTo(targetMs)
+                val targetMs = (value / 1000f * (exoPlayer?.duration ?: 0)).toLong()
                 exoPlayer?.seekTo(targetMs)
             }
         }
@@ -552,27 +505,6 @@ class MainActivity : AppCompatActivity() {
         binding.repeatButton.iconTint = ColorStateList.valueOf(
             ContextCompat.getColor(this, if (isRepeating) R.color.accent else R.color.text_secondary)
         )
-    }
-
-    private fun updateSeparateStemsButtonState() {
-        val hasPlayingTrack = playingSongUri != null
-        val engineReady = SeparationEngine.isInitialized()
-        val alreadySeparated = stemPlayerSync != null
-        val isCurrentlySeparating = isSeparating
-
-        // Button enabled only if track playing, model ready, not already separated, not currently separating
-        binding.separateStemsButton.isEnabled = hasPlayingTrack && engineReady && !alreadySeparated && !isCurrentlySeparating
-        binding.separateStemsButton.visibility = if (hasPlayingTrack && !alreadySeparated) View.VISIBLE else View.GONE
-
-        if (alreadySeparated) {
-            binding.separateStemsButton.text = getString(R.string.stems_section_title)
-        } else if (isCurrentlySeparating) {
-            binding.separateStemsButton.text = getString(R.string.status_separating, 0)
-        } else if (!engineReady) {
-            binding.separateStemsButton.text = "Carregando modelo..."
-        } else {
-            binding.separateStemsButton.text = getString(R.string.btn_separate_stems)
-        }
     }
 
     private fun applyBpm(targetBpm: Float) {
@@ -647,15 +579,8 @@ class MainActivity : AppCompatActivity() {
         binding.trackTimeTotal.text = "--:--"
         detectedBpm = 0f
         currentArtist = null
-        binding.stemsSection.visibility = android.view.View.GONE
-        binding.separationProgressLayout.visibility = android.view.View.GONE
-        isSeparating = false
-        separationJob?.cancel()
-
         exoPlayer?.release()
         exoPlayer = null
-        stemPlayerSync?.release()
-        stemPlayerSync = null
 
         startPlayback(uri)
 
@@ -707,8 +632,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-
-        updateSeparateStemsButtonState()
     }
 
     private fun startPlayback(uri: Uri) {
@@ -754,7 +677,6 @@ class MainActivity : AppCompatActivity() {
                                         player.seekTo(0L)
                                         binding.trackSlider.value = 0f
                                         binding.trackTimeCurrent.text = "0:00"
-                                        updateSeparateStemsButtonState()
                                     }
                                 }
                             }
@@ -782,130 +704,33 @@ class MainActivity : AppCompatActivity() {
 
     private fun togglePlayPause() {
         val exo = exoPlayer
-        val stem = stemPlayerSync
         when {
-            exo == null && playingSongUri == null -> checkPermissionAndPickFile()
+            exo == null && playingSongUri == null -> {
+                val songs = songAdapter.songsList()
+                val targetUri = selectedSongUri?.takeIf { songs.any { s -> s.uri == it } }
+                    ?: songs.firstOrNull()?.uri
+                if (targetUri != null) {
+                    selectedSongUri = targetUri
+                    val idx = songs.indexOfFirst { it.uri == targetUri }
+                    if (idx >= 0) {
+                        songAdapter.setSelectedPosition(idx)
+                        songAdapter.setPlayingPosition(idx)
+                    }
+                    onFilePicked(targetUri)
+                } else {
+                    checkPermissionAndPickFile()
+                }
+            }
             exo?.isPlaying == true -> {
                 exo.pause()
-                stem?.pause()
             }
             else -> {
                 if (exo?.playbackState == Player.STATE_ENDED) {
                     exo.seekTo(0L)
                 }
                 exo?.play()
-                stem?.play()
             }
         }
-    }
-
-private fun startStemSeparation(uri: Uri) {
-        val engine = SeparationEngine
-        if (!engine.isInitialized()) {
-            Log.w(TAG, "Separation engine not initialized, skipping stem separation")
-            Snackbar.make(binding.root, "Modelo de separação não carregado", Snackbar.LENGTH_LONG).show()
-            return
-        }
-
-        isSeparating = true
-        updateSeparateStemsButtonState()
-        binding.separationProgressLayout.visibility = android.view.View.VISIBLE
-        binding.stemsSection.visibility = android.view.View.GONE
-        binding.separationProgressSlider.value = 0f
-        binding.separationProgressText.text = getString(R.string.status_separating, 0f)
-
-        separationJob = lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val pcm = AudioDecoder.decode(applicationContext, uri)
-                if (pcm == null) {
-                    withContext(Dispatchers.Main) {
-                        binding.separationProgressLayout.visibility = android.view.View.GONE
-                        isSeparating = false
-                        updateSeparateStemsButtonState()
-                    }
-                    return@launch
-                }
-
-                val result = engine.separate(
-                    context = applicationContext,
-                    samples = pcm.samples,
-                    sampleRate = pcm.sampleRate,
-                    progressListener = object : SeparationEngine.ProgressListener {
-                        override fun onProgress(progress: SeparationEngine.Progress) {
-                            handler.post {
-                                binding.separationProgressSlider.value = progress.percent.toFloat()
-                                binding.separationProgressText.text = progress.message
-                            }
-                        }
-                    }
-                )
-
-                withContext(Dispatchers.Main) {
-                    if (result == null || isDestroyed || isFinishing) {
-                        binding.separationProgressLayout.visibility = android.view.View.GONE
-                        isSeparating = false
-                        updateSeparateStemsButtonState()
-                        return@withContext
-                    }
-
-                    val cache = StemsCache
-                    launch(Dispatchers.IO) {
-                        cache.saveStems(
-                            context = applicationContext,
-                            uri = uri,
-                            drums = result.drums,
-                            bass = result.bass,
-                            other = result.other,
-                            vocals = result.vocals,
-                            sampleRate = result.sampleRate
-                        )
-                    }
-
-                    binding.separationProgressLayout.visibility = android.view.View.GONE
-                    binding.stemsSection.visibility = android.view.View.VISIBLE
-
-                    val cached = cache.getCachedStems(applicationContext, uri)
-                    if (cached != null && cached.size == 4) {
-                        val sync = StemPlayerSync(applicationContext)
-                        sync.prepareStems(cached, uri)
-                        stemPlayerSync = sync
-                        stemsAdapter.updateStems(StemTrack.ALL.toList())
-                        binding.trackStatus.text = getString(R.string.status_stems_ready)
-                    } else {
-                        binding.trackStatus.text = getString(R.string.toast_no_bpm)
-                    }
-                    isSeparating = false
-                    updateSeparateStemsButtonState()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Stem separation failed: ${e.message}", e)
-                withContext(Dispatchers.Main) {
-                    binding.separationProgressLayout.visibility = android.view.View.GONE
-                    isSeparating = false
-                    updateSeparateStemsButtonState()
-                    Snackbar.make(binding.root, "Falha na separação: ${e.message}", Snackbar.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
-
-    private fun onStemMuteClick(index: Int) {
-        stemPlayerSync?.toggleMute(index)
-        val state = stemPlayerSync?.getStemStates()?.getOrNull(index) ?: return
-        stemsAdapter.updateStemState(index, state.track)
-    }
-
-    private fun onStemSoloClick(index: Int) {
-        stemPlayerSync?.toggleSolo(index)
-        val state = stemPlayerSync?.getStemStates()?.getOrNull(index) ?: return
-        stemsAdapter.updateStemState(index, state.track)
-        stemPlayerSync?.getStemStates()?.forEachIndexed { i, s ->
-            if (i != index) stemsAdapter.updateStemState(i, s.track)
-        }
-    }
-
-    private fun onStemVolumeChange(index: Int, volume: Float) {
-        stemPlayerSync?.setStemVolume(index, volume)
     }
 
     private fun resolveTrackTitle(uri: Uri): String {
@@ -971,6 +796,25 @@ private fun startStemSeparation(uri: Uri) {
                 updateEmptyState()
             }
         }
+    }
+
+    private fun playPreviousInQueue(): Boolean {
+        val current = playingSongUri ?: return false
+        val songs = songAdapter.songsList()
+        if (songs.isEmpty()) return false
+        val idx = songs.indexOfFirst { it.uri == current }
+        if (idx < 0) return false
+        val prevIdx = when {
+            idx > 0 -> idx - 1
+            isLoopingAll -> songs.size - 1
+            else -> return false
+        }
+        val prev = songs[prevIdx]
+        selectedSongUri = prev.uri
+        songAdapter.setSelectedPosition(prevIdx)
+        songAdapter.setPlayingPosition(prevIdx)
+        onFilePicked(prev.uri)
+        return true
     }
 
     private fun playNextInQueue(): Boolean {
@@ -1216,7 +1060,6 @@ private fun startStemSeparation(uri: Uri) {
                     songAdapter.setSongs(songs)
                     if (song.uri == playingSongUri) {
                         exoPlayer?.pause()
-                        stemPlayerSync?.pause()
                         playingSongUri = null
                         selectedSongUri = null
                         binding.trackTitle.text = getString(R.string.empty_title)
@@ -1256,9 +1099,6 @@ private fun startStemSeparation(uri: Uri) {
         handler.removeCallbacks(positionUpdater)
         exoPlayer?.release()
         exoPlayer = null
-        stemPlayerSync?.release()
-        stemPlayerSync = null
-        separationJob?.cancel()
     }
 
     companion object {

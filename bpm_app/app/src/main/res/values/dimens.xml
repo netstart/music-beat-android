@@ -20,6 +20,5 @@
     <dimen name="song_icon_size">40dp</dimen>
     <dimen name="song_drag_handle_size">48dp</dimen>
     <dimen name="drawer_width">320dp</dimen>
-    <dimen name="stem_item_height">60dp</dimen>
     <dimen name="track_time_size">12sp</dimen>
 </resources>

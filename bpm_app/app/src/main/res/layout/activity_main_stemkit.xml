@@ -259,21 +259,6 @@
                             android:textSize="20sp"
                             android:textStyle="bold"
                             tools:text="120" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/separateStemsButton"
-                            style="@style/Widget.Material3.Button.TextButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="32dp"
-                            android:contentDescription="@string/cd_separate_stems"
-                            android:insetTop="0dp"
-                            android:insetBottom="0dp"
-                            android:paddingHorizontal="12dp"
-                            android:text="@string/btn_separate_stems"
-                            android:textColor="@color/accent"
-                            android:textSize="11sp"
-                            app:backgroundTint="@color/bg_icon_button"
-                            app:cornerRadius="16dp" />
                     </LinearLayout>
 
                     <TextView
@@ -328,70 +313,8 @@
                             android:textSize="@dimen/track_time_size" />
                     </LinearLayout>
                 </LinearLayout>
-
-                <!-- Seção de Stems -->
-                <LinearLayout
-                    android:id="@+id/stemsSection"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/card_margin_top"
-                    android:background="@drawable/bg_card"
-                    android:orientation="vertical"
-                    android:padding="@dimen/card_padding"
-                    android:visibility="gone">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:letterSpacing="0.08"
-                        android:text="@string/stems_section_title"
-                        android:textAllCaps="true"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="@dimen/playlist_label_size" />
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/stemsRecycler"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:clipToPadding="false"
-                        android:paddingHorizontal="4dp" />
-                </LinearLayout>
-
-                <!-- Progresso da separação -->
-                <LinearLayout
-                    android:id="@+id/separationProgressLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/card_margin_top"
-                    android:background="@drawable/bg_card"
-                    android:orientation="vertical"
-                    android:padding="@dimen/card_padding"
-                    android:visibility="gone">
-
-                    <TextView
-                        android:id="@+id/separationProgressText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/status_separating"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                    <com.google.android.material.slider.Slider
-                        android:id="@+id/separationProgressSlider"
-                        style="@style/BeatSlider"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:enabled="false"
-                        android:value="0"
-                        android:valueFrom="0"
-                        android:valueTo="100"
-                        app:trackHeight="4dp" />
-                </LinearLayout>
             </LinearLayout>
-        </androidx.core.widget.NestedScrollView>
+            </androidx.core.widget.NestedScrollView>
 
         <!-- Bottom Bar (fixo no rodapé) -->
         <LinearLayout
@@ -468,6 +391,23 @@
                     android:layout_height="0dp"
                     android:layout_weight="1" />
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/skipPreviousButton"
+                    style="@style/Widget.Material3.Button.IconButton.Filled"
+                    android:layout_width="@dimen/footer_button_height"
+                    android:layout_height="@dimen/footer_button_height"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="@string/cd_skip_previous"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:padding="0dp"
+                    app:backgroundTint="@color/bg_icon_button"
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/ic_skip_previous"
+                    app:iconGravity="textStart"
+                    app:iconSize="18dp"
+                    app:iconTint="@color/text_secondary" />
+
                 <com.google.android.material.floatingactionbutton.FloatingActionButton
                     android:id="@+id/playFab"
                     android:layout_width="56dp"
@@ -476,6 +416,23 @@
                     android:src="@drawable/ic_play"
                     app:backgroundTint="@color/accent"
                     app:tint="@color/on_accent" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/skipNextButton"
+                    style="@style/Widget.Material3.Button.IconButton.Filled"
+                    android:layout_width="@dimen/footer_button_height"
+                    android:layout_height="@dimen/footer_button_height"
+                    android:layout_marginStart="8dp"
+                    android:contentDescription="@string/cd_skip_next"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:padding="0dp"
+                    app:backgroundTint="@color/bg_icon_button"
+                    app:cornerRadius="20dp"
+                    app:icon="@drawable/ic_skip_next"
+                    app:iconGravity="textStart"
+                    app:iconSize="18dp"
+                    app:iconTint="@color/text_secondary" />
             </LinearLayout>
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
