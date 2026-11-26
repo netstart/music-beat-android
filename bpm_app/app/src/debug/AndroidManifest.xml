@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifesto só do build debug: ferramenta de benchmark da Fase 0
+  (separação de stems on-device). Nada disto entra no release.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ONNX Runtime/LiteRT podem declarar minSdk maior que o do app; o bench só roda em aparelhos novos. -->
+    <uses-sdk tools:overrideLibrary="ai.onnxruntime,org.tensorflow.lite,org.tensorflow.lite.gpu,org.tensorflow.lite.gpu.api,org.tensorflow.lite.api,com.google.ai.edge.litert" />
+
+    <application>
+        <activity
+            android:name=".stem.bench.StemBenchActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:label="@string/bench_title" />
+    </application>
+</manifest>

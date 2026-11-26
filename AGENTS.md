@@ -13,6 +13,13 @@
 
 ---
 
+## 1.1 Modo Ponytail (Obrigatório)
+
+Toda sessão com IA neste projeto deve rodar com o **Ponytail no nível `ultra`** ligado desde o início (skill `ponytail`, nível `ultra`):
+a menor mudança que resolve a tarefa por completo, sem over-engineering, e respostas que um humano ocupado entende numa leitura.
+
+---
+
 ## 2. Stack & Convenções
 
 - **Android nativo**: Kotlin + Views + ViewBinding + Material 3

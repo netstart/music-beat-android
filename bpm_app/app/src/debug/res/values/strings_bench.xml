@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Textos da ferramenta de benchmark (somente build debug). -->
+<resources>
+    <string name="bench_title">Benchmark de stems</string>
+    <string name="bench_starting">Iniciando benchmark…</string>
+</resources>
