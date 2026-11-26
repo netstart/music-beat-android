@@ -134,10 +134,10 @@ Janela = 7,8 s de áudio. RTF < 1 = mais rápido que tempo real. "3 min" inclui 
 
 ```powershell
 adb install -r bpm_app\app\build\outputs\apk\debug\app-debug.apk
-adb shell mkdir -p /sdcard/Android/data/com.example.bpm_player/files/models
-adb push separator-fused-norm.tflite /sdcard/Android/data/com.example.bpm_player/files/models/
-adb push htdemucs.onnx /sdcard/Android/data/com.example.bpm_player/files/models/
-adb shell am start -n com.example.bpm_player/.stem.bench.StemBenchActivity --es engines litert_gpu,litert_gpu_fp16,ort_xnnpack --ei runs 3
+adb shell mkdir -p /sdcard/Android/data/io.github.netstart.beattrack/files/models
+adb push separator-fused-norm.tflite /sdcard/Android/data/io.github.netstart.beattrack/files/models/
+adb push htdemucs.onnx /sdcard/Android/data/io.github.netstart.beattrack/files/models/
+adb shell am start -n io.github.netstart.beattrack/com.example.bpm_player.stem.bench.StemBenchActivity --es engines litert_gpu,litert_gpu_fp16,ort_xnnpack --ei runs 3
 adb logcat -s StemBench
 ```
 

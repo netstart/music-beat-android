@@ -12,8 +12,8 @@
 $SDK          = "C:\Android\Sdk"
 $MUSIC_SOURCE = "C:\Users\piru\Music"
 $AVD_NAME     = "test_device"
-$PACKAGE_NAME = "com.example.bpm_player"
-$LAUNCHER     = "$PACKAGE_NAME/.MainActivity"
+$PACKAGE_NAME = "io.github.netstart.beattrack"
+$LAUNCHER     = "$PACKAGE_NAME/com.example.bpm_player.MainActivity"
 # ========================================================================
 
 # Busca recursiva de APK na pasta outputs

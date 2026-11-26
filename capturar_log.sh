@@ -86,7 +86,7 @@ $ADB -s emulator-5554 shell "rm -rf /data/tombstones/*" 2>/dev/null
 $ADB -s emulator-5554 shell "rm -f /data/anr/*" 2>/dev/null
 
 # Abre o app
-$ADB -s emulator-5554 shell am start -n com.example.bpm_player/.MainActivity 2>&1 | head -3
+$ADB -s emulator-5554 shell am start -n io.github.netstart.beattrack/com.example.bpm_player.MainActivity 2>&1 | head -3
 echo "  App aberto"
 
 # 6. Monitora por 60 segundos
@@ -94,7 +94,7 @@ echo "[6/6] Monitorando app por 60s..."
 app_pid=""
 was_alive=false
 for i in $(seq 1 60); do
-    pid=$($ADB -s emulator-5554 shell pidof com.example.bpm_player 2>/dev/null | tr -d '\r\n ')
+    pid=$($ADB -s emulator-5554 shell pidof io.github.netstart.beattrack 2>/dev/null | tr -d '\r\n ')
     if [ -n "$pid" ]; then
         if [ -z "$app_pid" ]; then
             app_pid=$pid
@@ -166,7 +166,7 @@ echo "=== TOMBSTONES (se houver) ==="
 [ -s "$TOMB_LOG" ] && head -40 "$TOMB_LOG" || echo "(vazio)"
 echo ""
 echo "=== CRASH DROPPED ==="
-grep -A 5 "process com.example.bpm_player" "$CRASH_LOG" 2>/dev/null | head -30
+grep -A 5 "process io.github.netstart.beattrack" "$CRASH_LOG" 2>/dev/null | head -30
 echo ""
 echo "==================================================="
 echo "  Logs salvos em: $LOG_DIR"

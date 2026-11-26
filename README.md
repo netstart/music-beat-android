@@ -99,7 +99,7 @@ C:\Android\Sdk\platform-tools\adb.exe -s emulator-5554 shell am broadcast -a and
 
 ```powershell
 C:\Android\Sdk\platform-tools\adb.exe -s emulator-5554 install -r "C:\src\music-beat\bpm_app\app\build\outputs\apk\debug\app-debug.apk"
-C:\Android\Sdk\platform-tools\adb.exe -s emulator-5554 shell am start -n "com.example.bpm_player/.MainActivity"
+C:\Android\Sdk\platform-tools\adb.exe -s emulator-5554 shell am start -n "io.github.netstart.beattrack/com.example.bpm_player.MainActivity"
 ```
 
 ### 5. Testar

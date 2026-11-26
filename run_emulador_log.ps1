@@ -5,8 +5,8 @@
 
 $SDK          = "C:\Android\Sdk"
 $AVD_NAME     = "test_device"
-$PACKAGE_NAME = "com.example.bpm_player"
-$LAUNCHER     = "$PACKAGE_NAME/.MainActivity"
+$PACKAGE_NAME = "io.github.netstart.beattrack"
+$LAUNCHER     = "$PACKAGE_NAME/com.example.bpm_player.MainActivity"
 $LOG_DIR      = "C:\src\music-beat\logs"
 
 $adb      = "$SDK\platform-tools\adb.exe"

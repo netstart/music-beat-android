@@ -10,8 +10,8 @@
 
 # ============================= CONFIGURAÇÕES =============================
 $SDK       = "C:\Android\Sdk"
-$PACKAGE   = "com.example.bpm_player"
-$TEST_CLASS = "$PACKAGE.MainActivityPlayPauseTest"
+$PACKAGE   = "io.github.netstart.beattrack"
+$TEST_CLASS = "com.example.bpm_player.MainActivityPlayPauseTest"
 $GRADLEW   = ".\bpm_app\gradlew.bat"
 # ========================================================================
 
