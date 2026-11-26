@@ -52,4 +52,27 @@
     <string name="cd_menu">Abrir menu de músicas</string>
     <string name="cd_skip_previous">Música anterior</string>
     <string name="cd_skip_next">Próxima música</string>
+
+    <!-- Elementos (separação de stems on-device) -->
+    <string name="elements_title">Elementos</string>
+    <string name="elements_hint">Separe voz, bateria, baixo e outros para tocar cada um sozinho. Roda no aparelho.</string>
+    <string name="elements_need_model">Primeiro uso: baixa o modelo de IA (%1$d MB) uma única vez. Nenhum áudio sai do aparelho.</string>
+    <string name="elements_downloading">Baixando modelo… %1$d%%</string>
+    <string name="elements_separating">Separando elementos… %1$d%% · pode levar alguns minutos</string>
+    <string name="elements_ready">Ouça só o que quiser: solo ou mudo em cada elemento</string>
+    <string name="elements_failed">Falha ao separar: %1$s</string>
+    <string name="elements_unsupported">Separação indisponível neste aparelho (requer Android 7+, 64-bit e 3 GB de RAM)</string>
+    <string name="btn_separate">Separar elementos</string>
+    <string name="btn_download_separate">Baixar modelo e separar</string>
+    <string name="btn_cancel">Cancelar</string>
+    <string name="btn_retry">Tentar novamente</string>
+    <string name="stem_drums">Bateria</string>
+    <string name="stem_bass">Baixo</string>
+    <string name="stem_other">Outros</string>
+    <string name="stem_vocals">Voz</string>
+    <string name="cd_stem_mute">Silenciar %1$s</string>
+    <string name="cd_stem_unmute">Reativar %1$s</string>
+    <string name="cd_stem_solo">Ouvir só %1$s</string>
+    <string name="cd_stem_unsolo">Desfazer solo de %1$s</string>
+    <string name="cd_stem_volume">Volume de %1$s</string>
 </resources>

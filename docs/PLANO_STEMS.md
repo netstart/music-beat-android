@@ -1,6 +1,18 @@
 # Plano — Separação de Stems On-Device (voz, bateria, baixo, outros)
 
-> Status: **Fase 0 validada no emulador; falta medir no celular real** · Atualizado em 2026-11-26
+> Status: **Implementado (v1, motor ORT + XNNPACK)** · GPU (LiteRT) aguarda medição no celular real · Atualizado em 2026-11-26
+
+## 0. O que está no app (v1)
+
+| Peça | Arquivo |
+|---|---|
+| Decoder estéreo (música inteira, ShortArray pré-alocado) | `stem/StereoDecoder.kt` |
+| Separação HTDemucs (janelas 7,8 s, 25% overlap, peso triangular), download do modelo com retomada + SHA-256, cache das 3 últimas músicas | `stem/StemSeparator.kt`, `stem/OverlapAdd.kt` |
+| WAV 8 canais → mixer antes do Sonic (solo/mudo/volume em tempo real, BPM preservado) | `stem/StemMixer.kt` |
+| Card "Elementos" (estados: sem modelo, baixando, separando, pronto, falha, não suportado) | `activity_main_stemkit.xml`, `item_stem.xml`, `MainActivity.kt` |
+| Testes (overlap-add reconstrói o sinal, ganhos solo/mudo, mix com saturação) | `src/test/.../stem/StemsTest.kt` |
+
+**Deixado de fora de propósito (v1):** motor LiteRT GPU (sem medição em celular), serviço em primeiro plano/checkpoint (a separação roda enquanto o app está aberto), faixa de atividade por elemento, FLAC. Telemetria do ONNX Runtime removida do manifesto.
 > Tudo roda no aparelho. Nenhum áudio sai do dispositivo.
 
 ---

@@ -14,6 +14,8 @@ android {
         versionCode 2
         versionName "2.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // x86 (32-bit) só existe em emuladores antigos; cortar economiza ~45 MB do ONNX Runtime
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64' }
     }
 
     buildFeatures {
@@ -52,8 +54,6 @@ android {
             // Sem minify/shrink no debug — evita erros de mapping.txt e builds mais rápidos
             minifyEnabled false
             shrinkResources false
-            // Libs nativas do bench (ONNX Runtime/LiteRT) só para celular 64-bit e emulador
-            ndk { abiFilters 'arm64-v8a', 'x86_64' }
         }
         release {
             minifyEnabled true
@@ -104,11 +104,15 @@ dependencies {
     implementation 'androidx.activity:activity-ktx:1.8.2'
     implementation 'androidx.fragment:fragment-ktx:1.6.2'
 
+    // Separação de stems on-device (HTDemucs via ONNX Runtime + XNNPACK) — ver docs/PLANO_STEMS.md
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.32.0'
+
     // ── Fase 0: benchmark de separação de stems (somente debug; ver docs/PLANO_STEMS.md) ──
     debugImplementation 'com.google.ai.edge.litert:litert:1.4.2'
     debugImplementation 'com.google.ai.edge.litert:litert-gpu:1.4.2'
     debugImplementation 'com.google.ai.edge.litert:litert-gpu-api:1.4.2'
-    debugImplementation 'com.microsoft.onnxruntime:onnxruntime-android:1.32.0'
+
+    testImplementation 'junit:junit:4.13.2'
 
     // ── Testes instrumentados (UI) ──
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

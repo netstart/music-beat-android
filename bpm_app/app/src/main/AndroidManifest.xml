@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ONNX Runtime exige API 24; abaixo disso a separação de stems fica desativada (StemSeparator.isSupported). -->
+    <uses-sdk tools:overrideLibrary="ai.onnxruntime" />
 
     <!-- Para Android 13+ (API 33+) leitura de áudio via Storage Access Framework -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
@@ -30,6 +34,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Telemetria do ONNX Runtime desligada: nenhum dado sai do aparelho. -->
+        <provider
+            android:name="ai.onnxruntime.TelemetryInitializer"
+            android:authorities="${applicationId}.onnxruntime_telemetry_initializer"
+            tools:node="remove" />
 
         <!-- BroadcastReceiver para iniciar música via adb shell (teste/debug) -->
         <receiver

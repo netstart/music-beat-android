@@ -18,3 +18,6 @@
 # Preserve line numbers for crash reports (reasonable trade-off)
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# ONNX Runtime (JNI acessa as classes Java por nome)
+-keep class ai.onnxruntime.** { *; }

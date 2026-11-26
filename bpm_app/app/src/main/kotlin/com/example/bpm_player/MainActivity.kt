@@ -31,16 +31,29 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.bpm_player.databinding.ActivityMainStemkitBinding
 import com.example.bpm_player.databinding.ItemSongBinding
+import com.example.bpm_player.databinding.ItemStemBinding
+import com.example.bpm_player.stem.StemControl
+import com.example.bpm_player.stem.StemMixer
+import com.example.bpm_player.stem.StemSeparator
+import com.example.bpm_player.stem.StemState
+import com.example.bpm_player.stem.StemsFile
+import com.example.bpm_player.stem.effectiveGains
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -62,6 +75,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var songAdapter: SongAdapter
     private var sortMode: SortMode = SortMode.TITLE
     private var itemTouchHelper: ItemTouchHelper? = null
+
+    // Elementos (stems): o player toca o WAV de 8 canais e o StemMixer aplica solo/mudo/volume.
+    private var stemMixer: StemMixer? = null
+    private var playingStems: StemsFile? = null
+    private val stemControls = MutableList(StemMixer.STEMS) { StemControl() }
+    private val stemRows = arrayOfNulls<ItemStemBinding>(StemMixer.STEMS)
 
     private val bpmHoldHandler = Handler(Looper.getMainLooper())
     private var bpmHoldRunnable: Runnable? = null
@@ -270,6 +289,7 @@ class MainActivity : AppCompatActivity() {
             setupRecyclerViews()
             setupPlayerControls()
             setupBpmControls()
+            setupElements()
 
             Log.e("BPM_DEBUG", "=== onCreate PHASE 1 OK ===")
         } catch (e: Exception) {
@@ -568,6 +588,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onFilePicked(uri: Uri) {
+        val sameSong = uri == playingSongUri // "tocar todas" com uma faixa só recomeça a mesma música: mantém a mesa
         handler.removeCallbacks(positionUpdater)
         playingSongUri = uri
         ensureSongInList(uri)
@@ -581,8 +602,14 @@ class MainActivity : AppCompatActivity() {
         currentArtist = null
         exoPlayer?.release()
         exoPlayer = null
+        // Trocou de música: a separação em andamento era de outra faixa.
+        StemSeparator.state.value.belongsTo()?.let { if (it != uri) StemSeparator.cancel() }
+        StemSeparator.reset()
+        if (!sameSong) stemControls.indices.forEach { stemControls[it] = StemControl() }
 
         startPlayback(uri)
+        stemControls.indices.forEach { renderStemRow(it) }
+        renderElements()
 
         lifecycleScope.launch(Dispatchers.IO) {
             var pcm: AudioDecoder.PcmData? = null
@@ -637,9 +664,11 @@ class MainActivity : AppCompatActivity() {
     private fun startPlayback(uri: Uri) {
         if (uri != playingSongUri) return
         try {
-            exoPlayer = ExoPlayer.Builder(this).build().also { player ->
+            val stems = if (StemSeparator.isSupported(this)) StemSeparator.cached(this, uri) else null
+            playingStems = stems
+            exoPlayer = buildPlayer().also { player ->
                 player.repeatMode = if (isRepeating) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-                player.setMediaItem(MediaItem.fromUri(uri))
+                player.setMediaItem(MediaItem.fromUri(stems?.let { Uri.fromFile(it.wav) } ?: uri))
                 player.prepare()
                 player.playWhenReady = true
                 player.addListener(object : Player.Listener {
@@ -695,6 +724,155 @@ class MainActivity : AppCompatActivity() {
             binding.trackStatus.text = "Falha ao iniciar player"
             Snackbar.make(binding.root, "Falha ao reproduzir: ${e.javaClass.simpleName}", Snackbar.LENGTH_LONG).show()
         }
+    }
+
+    /** ExoPlayer com o StemMixer na cadeia de áudio (antes do Sonic, que faz o BPM). Inativo para arquivos comuns. */
+    @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
+    private fun buildPlayer(): ExoPlayer {
+        val mixer = StemMixer().also { it.gains = effectiveGains(stemControls) }
+        stemMixer = mixer
+        val renderers = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: android.content.Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): AudioSink = DefaultAudioSink.Builder(context)
+                .setAudioProcessors(arrayOf(mixer))
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .build()
+        }
+        return ExoPlayer.Builder(this, renderers).build()
+    }
+
+    // ───────────────────────── Elementos (stems) ─────────────────────────
+
+    private fun StemState.belongsTo(): Uri? = when (this) {
+        is StemState.Downloading -> uri
+        is StemState.Separating -> uri
+        is StemState.Ready -> uri
+        is StemState.Failed -> uri
+        StemState.Idle -> null
+    }
+
+    private fun setupElements() {
+        // Ordem na tela: voz primeiro. Índices seguem o WAV: drums, bass, other, vocals.
+        val names = intArrayOf(R.string.stem_drums, R.string.stem_bass, R.string.stem_other, R.string.stem_vocals)
+        val icons = intArrayOf(R.drawable.ic_stem_drums, R.drawable.ic_stem_bass, R.drawable.ic_music_note, R.drawable.ic_stem_vocals)
+        for (stem in intArrayOf(3, 0, 1, 2)) {
+            val row = ItemStemBinding.inflate(layoutInflater, binding.stemRows, true)
+            val name = getString(names[stem])
+            row.stemIcon.setImageResource(icons[stem])
+            row.stemName.text = name
+            row.stemVolume.contentDescription = getString(R.string.cd_stem_volume, name)
+            row.stemVolume.addOnChangeListener { _, value, fromUser ->
+                if (fromUser) updateStem(stem) { it.copy(volume = value / 100f) }
+            }
+            row.stemSolo.setOnClickListener { v ->
+                v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                updateStem(stem) { it.copy(solo = !it.solo) }
+            }
+            row.stemMute.setOnClickListener { v ->
+                v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                updateStem(stem) { it.copy(muted = !it.muted) }
+            }
+            stemRows[stem] = row
+            renderStemRow(stem)
+        }
+        binding.elementsAction.setOnClickListener { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            val uri = playingSongUri ?: return@setOnClickListener
+            when (StemSeparator.state.value) {
+                is StemState.Downloading, is StemState.Separating -> StemSeparator.cancel()
+                else -> StemSeparator.start(this, uri)
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                StemSeparator.state.collect { onStemState(it) }
+            }
+        }
+    }
+
+    private fun updateStem(stem: Int, change: (StemControl) -> StemControl) {
+        stemControls[stem] = change(stemControls[stem])
+        stemMixer?.gains = effectiveGains(stemControls)
+        renderStemRow(stem)
+    }
+
+    private fun renderStemRow(stem: Int) {
+        val row = stemRows[stem] ?: return
+        val c = stemControls[stem]
+        val name = row.stemName.text
+        val on = ContextCompat.getColor(this, R.color.accent)
+        val off = ContextCompat.getColor(this, R.color.text_secondary)
+        row.stemVolume.value = (c.volume * 100f).coerceIn(0f, 100f)
+        row.stemSolo.iconTint = ColorStateList.valueOf(if (c.solo) on else off)
+        row.stemSolo.contentDescription = getString(if (c.solo) R.string.cd_stem_unsolo else R.string.cd_stem_solo, name)
+        row.stemMute.setIconResource(if (c.muted) R.drawable.ic_volume_off else R.drawable.ic_volume_up)
+        row.stemMute.iconTint = ColorStateList.valueOf(if (c.muted) on else off)
+        row.stemMute.contentDescription = getString(if (c.muted) R.string.cd_stem_unmute else R.string.cd_stem_mute, name)
+    }
+
+    private fun onStemState(state: StemState) {
+        if (state is StemState.Ready && state.uri == playingSongUri && playingStems == null) switchToStems(state.stems)
+        renderElements(state)
+    }
+
+    /** Troca a fonte do player para o WAV de stems mantendo posição e play/pause. */
+    private fun switchToStems(stems: StemsFile) {
+        val player = exoPlayer ?: return
+        val position = player.currentPosition
+        val play = player.playWhenReady
+        playingStems = stems
+        player.setMediaItem(MediaItem.fromUri(Uri.fromFile(stems.wav)), position)
+        player.prepare()
+        player.playWhenReady = play
+    }
+
+    private fun renderElements(state: StemState = StemSeparator.state.value) {
+        val uri = playingSongUri
+        binding.elementsCard.visibility = if (uri == null) View.GONE else View.VISIBLE
+        if (uri == null) return
+        val mine = state.belongsTo() == uri
+        val busyElsewhere = !mine && (state is StemState.Downloading || state is StemState.Separating)
+        val stems = playingStems
+        binding.stemRows.visibility = if (stems != null) View.VISIBLE else View.GONE
+        stems?.let { s -> stemRows.forEachIndexed { i, row -> row?.root?.visibility = if (s.silent[i]) View.GONE else View.VISIBLE } }
+        binding.elementsProgress.visibility = View.GONE
+        binding.elementsAction.visibility = View.VISIBLE
+        binding.elementsAction.isEnabled = !busyElsewhere
+        when {
+            !StemSeparator.isSupported(this) -> {
+                binding.elementsStatus.text = getString(R.string.elements_unsupported)
+                binding.elementsAction.visibility = View.GONE
+            }
+            stems != null -> {
+                binding.elementsStatus.text = getString(R.string.elements_ready)
+                binding.elementsAction.visibility = View.GONE
+            }
+            mine && state is StemState.Downloading -> showProgress(getString(R.string.elements_downloading, state.percent), state.percent)
+            mine && state is StemState.Separating -> showProgress(getString(R.string.elements_separating, state.percent), state.percent)
+            mine && state is StemState.Failed -> {
+                binding.elementsStatus.text = getString(R.string.elements_failed, state.reason)
+                binding.elementsAction.text = getString(R.string.btn_retry)
+            }
+            StemSeparator.isModelReady(this) -> {
+                binding.elementsStatus.text = getString(R.string.elements_hint)
+                binding.elementsAction.text = getString(R.string.btn_separate)
+            }
+            else -> {
+                binding.elementsStatus.text = getString(R.string.elements_need_model, (StemSeparator.MODEL_BYTES / (1024 * 1024)).toInt())
+                binding.elementsAction.text = getString(R.string.btn_download_separate)
+            }
+        }
+    }
+
+    private fun showProgress(text: String, percent: Int) {
+        binding.elementsStatus.text = text
+        binding.elementsProgress.visibility = View.VISIBLE
+        binding.elementsProgress.setProgressCompat(percent, true)
+        binding.elementsAction.text = getString(R.string.btn_cancel)
     }
 
     private fun updatePlayFab(isPlaying: Boolean) {
