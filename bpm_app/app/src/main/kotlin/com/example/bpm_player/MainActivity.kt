@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity() {
     private var isRepeating = false
     private var isLoopingAll = true
     private var selectedSongUri: Uri? = null
+    private var playFirstWhenLoaded = false
     private var playingSongUri: Uri? = null
     private var currentArtist: String? = null
     private lateinit var songAdapter: SongAdapter
@@ -592,7 +593,12 @@ class MainActivity : AppCompatActivity() {
         val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
         when (requestCode) {
             1001 -> if (granted) filePickerLauncher.launch("audio/*")
-            1002 -> if (granted) loadSongs()
+            1002 -> if (granted) {
+                loadSongs()
+            } else if (playFirstWhenLoaded) {
+                playFirstWhenLoaded = false
+                filePickerLauncher.launch("audio/*") // o seletor do sistema não precisa da permissão
+            }
             1003 -> { }
         }
     }
@@ -894,19 +900,10 @@ class MainActivity : AppCompatActivity() {
         val exo = exoPlayer
         when {
             exo == null && playingSongUri == null -> {
-                val songs = songAdapter.songsList()
-                val targetUri = selectedSongUri?.takeIf { songs.any { s -> s.uri == it } }
-                    ?: songs.firstOrNull()?.uri
-                if (targetUri != null) {
-                    selectedSongUri = targetUri
-                    val idx = songs.indexOfFirst { it.uri == targetUri }
-                    if (idx >= 0) {
-                        songAdapter.setSelectedPosition(idx)
-                        songAdapter.setPlayingPosition(idx)
-                    }
-                    onFilePicked(targetUri)
-                } else {
-                    checkPermissionAndPickFile()
+                if (!playSelectedOrFirst()) {
+                    // Lista ainda vazia (sem permissão ou carregando): carrega e toca a primeira ao terminar
+                    playFirstWhenLoaded = true
+                    ensureAudioPermissionAndLoad()
                 }
             }
             exo?.isPlaying == true -> {
@@ -919,6 +916,21 @@ class MainActivity : AppCompatActivity() {
                 exo?.play()
             }
         }
+    }
+
+    private fun playSelectedOrFirst(): Boolean {
+        val songs = songAdapter.songsList()
+        val targetUri = selectedSongUri?.takeIf { songs.any { s -> s.uri == it } }
+            ?: songs.firstOrNull()?.uri
+            ?: return false
+        selectedSongUri = targetUri
+        val idx = songs.indexOfFirst { it.uri == targetUri }
+        if (idx >= 0) {
+            songAdapter.setSelectedPosition(idx)
+            songAdapter.setPlayingPosition(idx)
+        }
+        onFilePicked(targetUri)
+        return true
     }
 
     private fun resolveTrackTitle(uri: Uri): String {
@@ -1113,6 +1125,12 @@ class MainActivity : AppCompatActivity() {
                     binding.trackStatus.text = "${sorted.size} música(s) encontrada(s)"
                 } else {
                     binding.trackStatus.text = "Nenhuma música encontrada (verifique permissão de áudio)"
+                }
+                if (playFirstWhenLoaded) {
+                    playFirstWhenLoaded = false
+                    if (exoPlayer == null && playingSongUri == null && !playSelectedOrFirst()) {
+                        filePickerLauncher.launch("audio/*")
+                    }
                 }
             }
         }
