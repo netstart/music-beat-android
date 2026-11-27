@@ -10,7 +10,7 @@ android {
     defaultConfig {
         // Play recusa "com.example.*"; o ID é permanente depois do 1º upload
         applicationId "io.github.netstart.beattrack"
-        minSdk 21
+        minSdk 24 // ONNX Runtime e a proteção automática do Play exigem 24
         targetSdk 36
         versionCode((System.getenv("VERSION_CODE") ?: "2").toInteger()) // CI: número do run
         versionName "2.0.0"

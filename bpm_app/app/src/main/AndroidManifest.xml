@@ -2,9 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- ONNX Runtime exige API 24; abaixo disso a separação de stems fica desativada (StemSeparator.isSupported). -->
-    <uses-sdk tools:overrideLibrary="ai.onnxruntime" />
-
     <!-- Para Android 13+ (API 33+) leitura de áudio via Storage Access Framework -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 

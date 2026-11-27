@@ -9,34 +9,29 @@ Workflow: `.github/workflows/android.yml`
 
 - O `versionCode` é o número do run × 10, então cada build sobe sozinho.
 - O AAB e o `mapping.txt` ficam como artifact de cada run.
-- O ID do app é `io.github.netstart.beattrack`. O Play recusa `com.example.*`, e o ID não muda mais depois do 1º upload.
+- O ID do app é `io.github.netstart.beattrack` (o Play recusa `com.example.*`).
+- O `minSdk` é 24, exigido pelo ONNX Runtime e pela proteção automática do Play.
 
-## Já configurado
+## Configurado
 
-- **Chave de upload:** fica em `%USERPROFILE%\.beattrack-upload\` (`upload.jks` + `LEIA-senha.txt`), fora do repositório. **Faça backup.** Com o Play App Signing ela pode ser trocada se for perdida.
-- **Secrets no GitHub:** `UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS` e `UPLOAD_KEY_PASSWORD`.
+- **Play Console:** app **BeatTrack** criado como gratuito.
+- **Conta de serviço:** `beattrack-play-publisher@gen-lang-client-0110100183.iam.gserviceaccount.com`. Tem acesso só ao BeatTrack, com permissão para lançar em produção e em teste e editar o rascunho.
+- **Arquivos locais:** ficam em `%USERPROFILE%\.beattrack-upload\` — a chave de upload (`upload.jks` + `LEIA-senha.txt`) e a chave JSON da conta de serviço. **Faça backup.**
+- **Secrets no GitHub:** `UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD` e `PLAY_SERVICE_ACCOUNT_JSON`.
+- **Variáveis no GitHub:**
+  - `PLAY_ENABLED=true` liga o deploy.
+  - `PLAY_STATUS=draft`: o app ainda está em rascunho no Play, que só aceita versões `draft` por enquanto.
 
-## Falta fazer (uma vez, na sua conta)
+## Falta (só na Play Console, uma vez)
 
-1. **Criar o app:** [Play Console](https://play.google.com/console) → *Criar app* → nome **BeatTrack**, app, gratuito. Aceite as declarações.
-2. **Primeiro upload, manual:** a API não publica um app que nunca teve upload.
-   1. Baixe o artifact `app-release-*` do último run verde em *Actions*.
-   2. Vá em *Testar e lançar → Teste fechado → Alpha → Criar versão* e envie o `.aab`.
-   3. Aceite o **Play App Signing**.
-3. **Testadores:** no track Alpha, adicione uma lista de e-mails. Contas pessoais criadas depois de nov/2023 só liberam produção após **12 testadores ativos por 14 dias** no teste fechado.
-4. **Preencher o conteúdo do app:** política de privacidade, classificação etiária, segurança dos dados, público-alvo e ficha da loja com ícone, capturas e descrições.
-   - Segurança dos dados: o app não coleta nada. Ele só baixa o modelo de IA do Hugging Face.
-5. **Criar a conta de serviço para a API:**
-   1. No [Google Cloud](https://console.cloud.google.com), ative a **Google Play Android Developer API**.
-   2. Crie uma conta de serviço e gere uma **chave JSON**.
-   3. Na Play Console, vá em *Usuários e permissões → Convidar usuário* com o e-mail da conta de serviço. Dê permissão no app para *Lançar em tracks de teste* e *Lançar em produção*.
-6. **Ligar o deploy no GitHub:**
+1. **Conteúdo do app** (*Política → Conteúdo do app*): política de privacidade, classificação etária, segurança dos dados (o app não coleta nada), público-alvo e anúncios (não tem).
+2. **Ficha da loja:** ícone 512 px, imagem de destaque 1024×500, pelo menos 2 capturas de tela e as descrições.
+3. **Testadores:**
+   1. Em *Teste fechado → Alpha*, adicione uma lista de e-mails e os países.
+   2. Envie a versão em rascunho para revisão.
+4. **Depois que o Google aprovar:**
    ```powershell
-   gh secret set PLAY_SERVICE_ACCOUNT_JSON < caminho\da\chave.json
+   gh variable delete PLAY_STATUS
    ```
-   ```powershell
-   gh variable set PLAY_ENABLED --body true
-   ```
-   Até isso existir, o workflow só compila e guarda o AAB.
-
-> Enquanto o app não passa na 1ª revisão do Google, rode o workflow com `status: draft`. Depois disso, `completed`.
+   A partir daí cada push publica direto.
+5. **Produção:** contas pessoais novas precisam de **12 testadores ativos por 14 dias** antes. Depois solicite o acesso de produção na Play Console e rode o workflow com `production`.
