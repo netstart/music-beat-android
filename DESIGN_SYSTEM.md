@@ -25,6 +25,8 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 | **YouTube Music** | Scrubber (slider de progresso) espesso que engrossa ao arrastar, controles centralizados, menos botões permanentes na tela | Redesign 2025 do YTM foi amplamente elogiado ("they finally nailed it") |
 | **Poweramp** | Valor numérico dominante (ex.: BPM) como centro visual, feedback fluido, polimento em detalhes | Eleito "rei da experiência" entre players locais Android em comparativos 2026 |
 | **Retro Music Player** | Aderência total ao Material You / Material 3, superfícies arredondadas, ícones consistentes | Melhor materialização do M3 em players Android open-source |
+| **Material 3 Expressive** (Android 16, Pixel, Android Auto 2025–26) | Slider com trilha grossa, alça em pílula vertical e ponto de fim | Novo padrão de player do Android; progresso legível num relance |
+| **Metrônomos e apps de DJ** (djay, Ultimate Guitar) | Valor grande no centro com −/+ dos lados e slider logo abaixo | Combina ajuste rápido (slider) com ajuste preciso (±1) |
 
 ### Princípios (em ordem de prioridade)
 
@@ -41,16 +43,12 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 ```
 ┌─────────────────────────────────┐
 │  ╭──────────────────────────────╮  │
-│  │ (♪)  120                    │  │  ← herói: card BPM à esquerda
-│  │       BPM                   │  │     + controles à direita
-│  ╰──────────────────────────────╯  │
-│  ╭──────────────────────────────╮  │
-│  │  [−] [+]                    │  │  ← controles: - e + na mesma linha
-│  │  [Original]                 │  │  ← abaixo: reset BPM
-│  │  1.00× · tempo original    │  │
+│  │             BPM              │  │  ← herói centrado
+│  │  (−)        120         (+)  │  │  ← ajuste fino nas laterais (48dp)
+│  │   (Original) 1.00× · tempo   │  │  ← reset + fator na mesma linha
 │  ╰──────────────────────────────╯  │
 │                                 │
-│   ────●────────────             │  ← slider primário
+│   ━━━━━━━━━━┃━━━━━━━━━━━•       │  ← slider expressivo (trilha 16dp)
 │   40                  200       │
 │                                 │
 │  ╭──────────────────────────────╮  │
@@ -163,21 +161,23 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 
 ### 4.1 Slider primário (controle de BPM)
 - `com.google.android.material.slider.Slider`, `valueFrom/min` → `valueTo/max`, `stepSize=1`.
-- `trackHeight=6dp`, `tickVisible=false`, `labelBehavior=floating`, label formatado (`"128 BPM"`).
+- Estilo `BeatSlider` (M3 Expressive, Material ≥ 1.13): alça em pílula vertical `thumbWidth=4dp` × `thumbHeight=44dp`, vão `thumbTrackGapSize=6dp`, ponto de fim `trackStopIndicatorSize=4dp`.
+- BPM: `trackHeight=16dp`. Scrubber da faixa: `trackHeight=10dp`, `thumbHeight=32dp`.
+- `tickVisible=false`, `labelBehavior=floating`, label formatado (`"128 BPM"`).
 - Cores: ativo `accent`, inativo `outline`, thumb `accent`.
 - Min/max em `caption` (tertiary) nas extremidades, logo abaixo.
 - Mudanças aplicam **em tempo real** durante o arrasto (`fromUser == true`).
 
 ### 4.2 Botão de ícone (ajuste fino)
-- Estilo `Widget.Material3.Button.IconButton.Filled`, 36×36dp, raio 18dp.
-- Fundo `bg/icon-button`, ícone 14sp `text/primary`.
+- Estilo `Widget.Material3.Button.IconButton.Filled`, 48×48dp, raio 24dp.
+- Fundo `bg/icon-button`, ícone 18dp `text/primary`.
 - Sempre com `contentDescription` e háptica no clique.
 
 ### 4.3 Botão reset (BPM original)
-- Estilo `Widget.Material3.Button.TonalButton`, altura 32dp, raio 12dp.
-- Fundo `bg/icon-button`, texto 10sp medium `text/primary`.
+- Estilo `Widget.Material3.Button.TonalButton`, altura 48dp, raio `radius/pill`.
+- Fundo `bg/icon-button`, texto 12sp medium `text/primary`.
 - Texto: "Original".
-- Posicionado **abaixo** da linha de botões − e +.
+- Posicionado **abaixo** do número, na mesma linha do fator de tempo (`meta`).
 
 ### 4.4 FAB de play/pause
 - `FloatingActionButton` 56dp, fundo `accent`, ícone `on/accent`.
@@ -194,9 +194,9 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 
 ### 4.6 Cartão herói (valor dominante)
 - Fundo `bg/hero` (gradiente — ver 3.4), raio 28dp, padding 10dp, minHeight 41–150dp (responsivo).
-- Conteúdo: círculo `accent/wash` 16–64dp com ícone musical 8–32dp `accent` → número `display/hero` `text/primary` → label `caption` caps `text/secondary`.
+- Conteúdo, centrado: label `caption` caps "BPM" → linha `(−) número (+)` com o número `display/hero` `text/primary` ocupando o meio → linha `(Original)` + fator de tempo.
 - O número pulsa (`motion/pulse`) a cada atualização.
-- **Layout horizontal**: card BPM à esquerda + controles (−, +, reset, tempo factor) à direita.
+- Sem ícone decorativo: o número é o herói.
 
 ### 4.7 Lista de músicas do dispositivo
 - `RecyclerView` com `LinearLayoutManager`.
@@ -286,3 +286,4 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 |---|---|---|
 | 1.0 | 2026-09-01 | Criação do design system a partir da pesquisa de mercado (Spotify, Apple Music, YouTube Music, Poweramp, Retro Music; Material 3/Material You). |
 | 1.1 | 2026-09-03 | Hero card com controles à direita em layout horizontal. Botão "Original" abaixo de − e +. Botões do rodapé agora só ícone (IconButton.Filled, sem texto). Botão "Tocar todas em sequência" adicionado com exclusão mútua com "Repetir". Lista de músicas do dispositivo com RecyclerView funcional, double-tap para tocar, ícone play/pause por item. Tempo atual/total em tempo real. |
+| 1.2 | 2026-11-27 | Redesign M3 Expressive: sliders com trilha grossa e alça em pílula (Material 1.13), herói centrado com −/+ de 48dp nas laterais, toolbar sem fundo (`bg/base`). |

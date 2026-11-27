@@ -21,5 +21,12 @@
         <item name="haloColor">@color/accent_light</item>
         <item name="tickVisible">false</item>
         <item name="labelBehavior">floating</item>
+        <!-- M3 Expressive: alça em pílula vertical, vão entre alça e trilha, ponto no fim -->
+        <item name="thumbWidth">4dp</item>
+        <item name="thumbHeight">44dp</item>
+        <item name="thumbTrackGapSize">6dp</item>
+        <item name="trackStopIndicatorSize">4dp</item>
+        <item name="tickColorActive">@color/on_accent</item>
+        <item name="tickColorInactive">@color/accent</item>
     </style>
 </resources>
