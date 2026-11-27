@@ -511,6 +511,8 @@
                 android:contentDescription="@string/cd_sort"
                 android:drawableStart="@drawable/ic_sort"
                 android:drawablePadding="6dp"
+                android:gravity="center_vertical"
+                android:minHeight="48dp"
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="0.06"
                 android:paddingHorizontal="6dp"

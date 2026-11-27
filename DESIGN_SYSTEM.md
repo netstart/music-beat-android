@@ -208,6 +208,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 - Toque único = selecionar; duplo toque = tocar.
 - Ícone é clicável: se tocando → pausa; se não → inicia reprodução.
 - Modo de ordenação: **Título** (A→Z), **Artista** (A→Z + título), **Manual** (drag com long-press).
+- Toque no rótulo de ordenação (alvo ≥ 48dp) abre a escolha. Modo e ordem manual ficam salvos no aparelho (`SharedPreferences` `song_sort`); músicas novas entram no fim da ordem manual.
 - Handle de drag (`ic_drag`) visível apenas no modo **Manual**.
 - Estado vazio: texto centrado ("Nenhuma música encontrada no dispositivo" ou pedido de permissão).
 - Altura fixa: 140dp (base), 280dp (tablet).

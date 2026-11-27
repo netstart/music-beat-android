@@ -115,6 +115,9 @@ class MainActivity : AppCompatActivity() {
 
     enum class SortMode { TITLE, ARTIST, MANUAL }
 
+    // Ordenação persistida no aparelho: modo escolhido + ordem manual (URIs, uma por linha)
+    private val sortPrefs by lazy { getSharedPreferences("song_sort", MODE_PRIVATE) }
+
     private val handler = Handler(Looper.getMainLooper())
 
     private val positionUpdater = object : Runnable {
@@ -287,6 +290,8 @@ class MainActivity : AppCompatActivity() {
 
             setupDrawer()
             setupRecyclerViews()
+            binding.sortLabel.setOnClickListener { showSortDialog() }
+            applySortMode(runCatching { SortMode.valueOf(sortPrefs.getString("mode", null)!!) }.getOrDefault(SortMode.TITLE))
             setupPlayerControls()
             setupBpmControls()
             setupElements()
@@ -409,6 +414,10 @@ class MainActivity : AppCompatActivity() {
                 updateEmptyState()
             }
             override fun isLongPressDragEnabled(): Boolean = sortMode == SortMode.MANUAL
+            override fun clearView(rv: RecyclerView, vh: RecyclerView.ViewHolder) {
+                super.clearView(rv, vh)
+                if (sortMode == SortMode.MANUAL) saveManualOrder()
+            }
             override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float = 0.4f
             override fun onChildDraw(c: android.graphics.Canvas, rv: RecyclerView, vh: RecyclerView.ViewHolder, dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean) {
                 if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
@@ -1128,9 +1137,17 @@ class MainActivity : AppCompatActivity() {
         when (sortMode) {
             SortMode.TITLE -> list.sortBy { it.title.lowercase(Locale.getDefault()) }
             SortMode.ARTIST -> list.sortWith(compareBy({ it.artist.lowercase(Locale.getDefault()) }, { it.title.lowercase(Locale.getDefault()) }))
-            SortMode.MANUAL -> { }
+            SortMode.MANUAL -> {
+                val order = sortPrefs.getString("manual_order", null)?.split('\n')
+                    ?.withIndex()?.associate { it.value to it.index }.orEmpty()
+                list.sortBy { order[it.uri.toString()] ?: Int.MAX_VALUE } // músicas novas vão para o fim
+            }
         }
         return list
+    }
+
+    private fun saveManualOrder() {
+        sortPrefs.edit().putString("manual_order", songAdapter.songsList().joinToString("\n") { it.uri.toString() }).apply()
     }
 
     private fun updateEmptyState() {
@@ -1158,6 +1175,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun applySortMode(newMode: SortMode) {
         sortMode = newMode
+        sortPrefs.edit().putString("mode", newMode.name).apply()
         binding.sortLabel.text = when (newMode) {
             SortMode.TITLE -> getString(R.string.sort_title)
             SortMode.ARTIST -> getString(R.string.sort_artist)
