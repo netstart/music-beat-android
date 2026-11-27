@@ -57,6 +57,13 @@ a menor mudança que resolve a tarefa por completo, sem over-engineering, e resp
 
 ---
 
+## 4.1 Política de privacidade (Obrigatório)
+
+A política do app fica em **`D:\src\netstart.github.io\beattrack\`** (`privacy-policy.md` = fonte, `privacy-policy.html` = publicada em https://netstart.github.io/beattrack/privacy-policy.html).
+Toda mudança no app que altere dados, permissões, SDKs, anúncios ou rede **atualiza as duas** (mesmo conteúdo, nova versão e data), com commit + push naquele repositório, e depois a declaração de Segurança dos dados na Play Console.
+
+---
+
 ## 5. Arquivos-chave
 
 | Arquivo | Função |

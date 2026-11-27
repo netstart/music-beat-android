@@ -5,9 +5,6 @@
     <!-- Para Android 13+ (API 33+) leitura de áudio via Storage Access Framework -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
-    <!-- Captura de áudio para o visualizador BPM (detecção de pitch) -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
     <!-- Para versões mais antigas ainda precisamos da permissão legada -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

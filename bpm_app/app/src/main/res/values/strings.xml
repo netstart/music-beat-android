@@ -75,5 +75,6 @@
     <string name="cd_stem_solo">Ouvir só %1$s</string>
     <string name="cd_stem_unsolo">Desfazer solo de %1$s</string>
     <string name="cd_stem_volume">Volume de %1$s</string>
+    <string name="privacy_policy">Política de privacidade</string>
     <string name="ads_privacy">Privacidade dos anúncios</string>
 </resources>

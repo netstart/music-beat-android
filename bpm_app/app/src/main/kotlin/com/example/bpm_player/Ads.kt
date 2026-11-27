@@ -1,6 +1,8 @@
 package com.example.bpm_player
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.view.View
 import android.widget.FrameLayout
 import com.google.android.gms.ads.AdListener
@@ -17,7 +19,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 /** Banner AdMob com consentimento UMP (GDPR/EUA). Plano: docs/MONETIZACAO.md */
 object Ads {
 
+    const val PRIVACY_URL = "https://netstart.github.io/beattrack/privacy-policy.html"
+
     fun setup(activity: Activity, container: FrameLayout, toolbar: MaterialToolbar) {
+        // Play exige o link da política também dentro do app
+        toolbar.menu.add(R.string.privacy_policy).setOnMenuItemClickListener {
+            activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL)))
+            true
+        }
         val started = AtomicBoolean(false)
         val consent = UserMessagingPlatform.getConsentInformation(activity)
         val start = {
