@@ -4,7 +4,7 @@ Workflow: `.github/workflows/android.yml`
 
 | Gatilho | Resultado |
 |---|---|
-| push na `main` | testes + AAB assinado → **teste fechado** (track `alpha`) |
+| push na `main` | AAB assinado (sem testes — rodam só localmente) → **teste fechado** (track `alpha`) |
 | Actions → Android → **Run workflow** → `production` | AAB da `main` → **produção** |
 
 - O `versionCode` é o número do run × 10, então cada build sobe sozinho.

@@ -50,7 +50,8 @@ a menor mudança que resolve a tarefa por completo, sem over-engineering, e resp
 2. Ler DESIGN_SYSTEM.md (se toca UI)
 3. Implementar seguindo tokens/receitas
 4. Rodar checklist Seção 8
-5. Testar: build + execução no device/emulador
+5. Testar **na máquina do desenvolvedor**: testes automatizados (`gradlew testDebugUnitTest`) + build + execução no device/emulador.
+   O GitHub Actions **não roda testes** — só compila e publica. Não adicione testes ao workflow.
 6. Entregar
 ```
 

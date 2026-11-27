@@ -1,4 +1,5 @@
 # Build + deploy no Google Play. Setup único: docs/GOOGLE_PLAY.md
+# Sem testes aqui: rodam só na máquina do desenvolvedor (AGENTS.md)
 # push na main  → teste fechado (track "alpha")
 # Actions → "Run workflow" → track production → produção
 name: Android
@@ -50,12 +51,13 @@ jobs:
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           echo "UPLOAD_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
 
-      - name: Testes + AAB release
+      # Testes rodam só na máquina do desenvolvedor (AGENTS.md)
+      - name: AAB release
         env:
           UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
           UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
-        run: ./gradlew testDebugUnitTest bundleRelease
+        run: ./gradlew bundleRelease
 
       - uses: actions/upload-artifact@v4
         with:
