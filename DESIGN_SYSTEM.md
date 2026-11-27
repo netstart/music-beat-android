@@ -219,6 +219,11 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 - 4 botões: **Localizar** (`ic_folder`), **Repetir música atual** (`ic_repeat`), **Tocar todas** (`ic_playlist`), + **FAB play** à direita.
 - Exclusão mútua: "Repetir" e "Tocar todas" não podem estar ativos ao mesmo tempo.
 
+### 4.10 Banner de anúncio (AdMob)
+- Banner adaptativo ancorado, largura total, **logo acima do rodapé** (`adContainer`); fica `gone` até carregar.
+- Nunca intersticial nem app open: não interromper a música. Plano completo em `docs/MONETIZACAO.md`.
+- Consentimento UMP antes de pedir anúncios; item **Privacidade dos anúncios** no menu da toolbar quando exigido.
+
 ### 4.9 Feedback textual
 - Toasts curtos para eventos assíncronos (resultado da detecção de BPM).
 - Nenhum diálogo/modal nesta fase — estados são comunicados inline (linha de status).

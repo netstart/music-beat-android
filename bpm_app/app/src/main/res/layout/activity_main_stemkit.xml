@@ -36,7 +36,7 @@
             android:fillViewport="true"
             android:scrollbars="none"
             app:layout_constraintTop_toBottomOf="@id/toolbar"
-            app:layout_constraintBottom_toTopOf="@id/bottomBar"
+            app:layout_constraintBottom_toTopOf="@id/adContainer"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
@@ -350,6 +350,16 @@
                 </LinearLayout>
             </LinearLayout>
             </androidx.core.widget.NestedScrollView>
+
+        <!-- Banner AdMob: some até carregar (ver docs/MONETIZACAO.md) -->
+        <FrameLayout
+            android:id="@+id/adContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@id/bottomBar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <!-- Bottom Bar (fixo no rodapé) -->
         <LinearLayout

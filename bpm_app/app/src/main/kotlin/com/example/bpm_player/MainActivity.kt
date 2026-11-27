@@ -295,6 +295,7 @@ class MainActivity : AppCompatActivity() {
             setupPlayerControls()
             setupBpmControls()
             setupElements()
+            Ads.setup(this, binding.adContainer, binding.toolbar)
 
             Log.e("BPM_DEBUG", "=== onCreate PHASE 1 OK ===")
         } catch (e: Exception) {
