@@ -25,7 +25,7 @@ Rede: **Google AdMob** (SDK `play-services-ads`) + **UMP** (`user-messaging-plat
 
 1. ✅ **AdMob:** app "BeatTrack" (`ca-app-pub-6552169828297838~7776540821`) e bloco **Banner rodape** (`…/2632025351`), no `release` do `app/build.gradle`. Falta **vincular à loja** (AdMob → Apps → BeatTrack → Adicionar loja) depois que o app estiver publicado; até lá a veiculação é limitada.
 2. ✅ **Pagamentos AdMob:** a conta já existia com o perfil de pagamentos completo.
-3. **Mensagens de privacidade (AdMob → Privacidade e mensagens):** criar a mensagem GDPR e a de estados dos EUA.
+3. ✅ **Mensagens de privacidade (AdMob → Privacidade e mensagens):** "BeatTrack - GDPR" (botão "Não consentir" ativo, en + de/es/fr/it/nl/pl/pt-PT) e "BeatTrack - Estados dos EUA", publicadas.
 4. ✅ **Política de privacidade:** https://netstart.github.io/beattrack/privacy-policy.html (repositório `netstart.github.io`, pasta `beattrack/`), informada na Play Console e no menu do app.
 5. ✅ **Play Console → Conteúdo do app** (Detalhes do login: sem restrições; Público-alvo: 13+):
    - Anúncios: **Sim, contém anúncios**.
