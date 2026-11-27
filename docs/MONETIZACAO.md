@@ -27,7 +27,7 @@ Rede: **Google AdMob** (SDK `play-services-ads`) + **UMP** (`user-messaging-plat
 2. ✅ **Pagamentos AdMob:** a conta já existia com o perfil de pagamentos completo.
 3. ✅ **Mensagens de privacidade (AdMob → Privacidade e mensagens):** "BeatTrack - GDPR" (botão "Não consentir" ativo, en + de/es/fr/it/nl/pl/pt-PT) e "BeatTrack - Estados dos EUA", publicadas.
 4. ✅ **Política de privacidade:** https://netstart.github.io/beattrack/privacy-policy.html (repositório `netstart.github.io`, pasta `beattrack/`), informada na Play Console e no menu do app.
-5. ✅ **Play Console → Conteúdo do app** (Detalhes do login: sem restrições; Público-alvo: 13+):
+5. ✅ **Play Console → Conteúdo do app** (todas as declarações concluídas — Detalhes do login: sem restrições; Público-alvo: 13+; Classificação IARC: Livre/3+; saúde, financeiro e governamental: não se aplica):
    - Anúncios: **Sim, contém anúncios**.
    - ID de publicidade: **usa** (finalidade: publicidade).
    - Segurança dos dados: o SDK do AdMob coleta **ID do dispositivo**, **interações com o app**, **diagnóstico** e **localização aproximada (IP)**; finalidade publicidade e análise; criptografados em trânsito; compartilhados com o Google.
