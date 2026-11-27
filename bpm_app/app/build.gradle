@@ -66,6 +66,9 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+            // AdMob real (app BeatTrack, bloco "Banner rodape"); IDs não são segredo, vão no APK
+            manifestPlaceholders = [admobAppId: "ca-app-pub-6552169828297838~7776540821"]
+            buildConfigField "String", "ADMOB_BANNER_ID", '"ca-app-pub-6552169828297838/2632025351"'
         }
     }
 }
