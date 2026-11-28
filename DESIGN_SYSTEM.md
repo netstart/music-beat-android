@@ -31,7 +31,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 ### Princípios (em ordem de prioridade)
 
 1. **O conteúdo é o herói** — o número de BPM (ou a arte da faixa) domina a tela; a interface desaparece atrás dele.
-2. **Uma cor de acento, zero poluição** — todo o destaque vem do mint (`accent`); nada de arco-íris.
+2. **Uma cor de acento para ação** — todo destaque interativo vem do mint (`accent`). Cores extras só para **identificar dados** (ex.: seções da música, 3.1.1), nunca para botões ou estados.
 3. **Controles sob o polegar** — ações principais (play/pause, escolher arquivo) ficam na metade inferior da tela.
 4. **Feedback imediato** — todo toque gera resposta visual ou háptica em < 100 ms.
 5. **Escaneabilidade em 1 segundo** — o usuário deve responder "que valor está ajustado?" e "está tocando?" sem ler nada.
@@ -67,7 +67,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 ```
 
 **Regras de composição:**
-- O herói (número/art) ocupa no mínimo 35% da altura útil visível.
+- O herói (número/art) é o maior texto da tela e fica no topo; compacto (1.5) para deixar espaço ao Now Playing e à Estrutura.
 - Exatamente **um** FAB por tela (play/pause).
 - Estado vazio reutiliza o cartão Now Playing com ícone + instrução — nunca uma tela em branco.
 - O status de análise de BPM aparece **apenas** no cartão Now Playing (linha 2). O herói permanece puro.
@@ -94,13 +94,30 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 
 **Regras de contraste:** `text/primary` sobre `bg/base` ≥ 15:1; `text/secondary` ≥ 7:1; `accent` é usado em elementos gráficos e números grandes (≥ 3:1 garantido). Nunca use `text/tertiary` em textos abaixo de 12sp.
 
-**Regra do acento único:** se uma tela precisa de mais de uma cor de destaque, o design está errado. Re force hierarquia com tamanho/peso, não com cor.
+**Regra do acento único (para ação):** botões, sliders, FAB, ícones ativos e "o que está tocando agora" usam só `accent`. Hierarquia vem de tamanho/peso, não de cor.
+
+#### 3.1.1 Paleta de dados (seções da música)
+
+Cores categóricas para **identificar dados** (uma cor por tipo de seção, como legenda), não para ação. Todas com contraste ≥ 3:1 sobre `bg/card`, distintas entre si e do `accent`.
+
+| Token | Hex | Seção |
+|---|---|---|
+| `section/intro` | `#5B8DEF` | Intro |
+| `section/verse` | `#E5B83B` | Verso |
+| `section/pre-chorus` | `#F08A4B` | Pré-refrão |
+| `section/chorus` | `#EF5D8B` | Refrão |
+| `section/bridge` | `#A77BF3` | Ponte |
+| `section/outro` | `#8A9BA8` | Final |
+
+- Seção atual: cor cheia; demais: mesma cor a 40% de alpha.
+- A cor nunca é a única pista: o nome da seção sempre aparece em texto.
+- Nova categoria de dado = nova linha aqui antes de usar.
 
 ### 3.2 Tipografia (Roboto / system sans)
 
 | Token | Especificação | Uso |
 |---|---|---|
-| `display/hero` | 72–76sp · medium · `tnum` · letterspacing −2% | Número de BPM |
+| `display/hero` | 45–53sp · medium · `tnum` · letterspacing −2% · sem font padding | Número de BPM |
 | `headline` | 20sp · bold | Nome do app no header |
 | `title` | 15–16sp · medium · singleLine·ellipsize | Nome da faixa |
 | `body` | 13–14sp · regular · line-height 20sp | Subtítulos, status |
@@ -234,6 +251,15 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 - Conteúdo em cartões `bg_card` com padding horizontal da tela 16dp; cada cartão: título `title`, explicação `body` `text_secondary`, valor atual `body` `text_primary`, ações em botões tonais de 48dp.
 - Hoje: **Elementos separados** — pasta escolhida pelo usuário (Storage Access Framework) ou armazenamento do app.
 
+### 4.13 Cartão Estrutura (seções, frases e contagem)
+- Mesmo cartão `bg_card`, entre Now Playing e Elementos; título `title` "Estrutura" + status `body` `text_secondary`.
+- A música inteira é analisada **antes** (thread de fundo, depois do BPM); em tempo real só a posição é acompanhada.
+- **Barra de seções** (`structureBar`, 48dp): blocos proporcionais à duração, cor da paleta 3.1.1, seção atual cheia, demais a 40%; linha de posição `text_primary` 2dp. Toque numa seção pula para o início dela.
+- **Linha de leitura**: nome da seção (`title`, na cor da seção) + "Frase 2 de 4" (`meta`, `tnum`).
+- **Contagem 1–8** (`countView`, 40dp): 8 círculos; o tempo atual em `accent` com o número em `on/accent`, os outros contorno `outline` com número `text_tertiary`. Atualiza ~25×/s enquanto toca.
+- **Ações** (IconButton 48dp, `bg/icon-button`): frase anterior (`ic_skip_previous`), loop da frase (`ic_repeat`, `accent` quando ativo), próxima frase (`ic_skip_next`).
+- Estados: analisando, sem estrutura (sem batida clara), pronta.
+
 ### 4.9 Feedback textual
 - Toasts curtos para eventos assíncronos (resultado da detecção de BPM).
 - Nenhum diálogo/modal nesta fase — estados são comunicados inline (linha de status); confirmações curtas em Snackbar.
@@ -283,9 +309,9 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 ## 8. Checklist antes de entregar qualquer tela
 
 - [ ] Só usei tokens das Seções 3 (cores, tipo, espaçamento, raio, motion)?
-- [ ] Dark-first respeitado e acento único (`#2EE6A8`) sem concorrência?
+- [ ] Dark-first respeitado e acento único (`#2EE6A8`) em toda ação? Cores extras só da paleta de dados (3.1.1)?
 - [ ] Exatamente um FAB; ações principais na metade inferior?
-- [ ] Herói visível (número/art) com ≥ 35% da altura útil?
+- [ ] Herói visível no topo e maior número da tela?
 - [ ] Todos os ícones com `contentDescription` e alvo ≥ 48dp?
 - [ ] Háptica nos botões de ajuste; nada de animação > 300 ms?
 - [ ] Estado vazio tratado (sem tela branca)?
@@ -302,6 +328,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 |---|---|---|
 | 1.0 | 2026-09-01 | Criação do design system a partir da pesquisa de mercado (Spotify, Apple Music, YouTube Music, Poweramp, Retro Music; Material 3/Material You). |
 | 1.1 | 2026-09-03 | Hero card com controles à direita em layout horizontal. Botão "Original" abaixo de − e +. Botões do rodapé agora só ícone (IconButton.Filled, sem texto). Botão "Tocar todas em sequência" adicionado com exclusão mútua com "Repetir". Lista de músicas do dispositivo com RecyclerView funcional, double-tap para tocar, ícone play/pause por item. Tempo atual/total em tempo real. |
+| 1.5 | 2026-11-28 | Paleta de dados (3.1.1) para seções da música; acento único passa a valer para ação. Cartão Estrutura (4.13): seções, frases, contagem 1–8 e loop de frase. Cartão herói 30% menor (`display/hero` 45–53sp, altura mínima −30%); botões seguem com 48dp de toque. |
 | 1.4 | 2026-11-27 | Lista de músicas em painel inferior arrastável (sai o menu hambúrguer); um toque toca; banner AdMob como último item da área que rola. |
 | 1.3 | 2026-11-27 | Cartão Elementos (4.11) com "Separar" e "Limpar elementos"; tela de Configurações (4.12) para a pasta dos elementos separados. |
 | 1.2 | 2026-11-27 | Redesign M3 Expressive: sliders com trilha grossa e alça em pílula (Material 1.13), herói centrado com −/+ de 48dp nas laterais, toolbar sem fundo (`bg/base`). |

@@ -61,7 +61,6 @@
                         android:id="@+id/bpmLabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
                         android:fontFamily="sans-serif-medium"
                         android:letterSpacing="0.08"
                         android:text="@string/bpm_caption"
@@ -98,6 +97,7 @@
                             android:fontFamily="sans-serif-medium"
                             android:fontFeatureSettings="tnum"
                             android:gravity="center"
+                            android:includeFontPadding="false"
                             android:letterSpacing="-0.02"
                             android:text="@string/bpm_default"
                             android:textColor="@color/text_primary"
@@ -122,7 +122,6 @@
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="4dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
@@ -283,6 +282,140 @@
                             android:text="--:--"
                             android:textColor="@color/text_tertiary"
                             android:textSize="@dimen/track_time_size" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Card Estrutura: seções, frases e contagem 1–8 (DESIGN_SYSTEM 4.13) -->
+                <LinearLayout
+                    android:id="@+id/structureCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/card_margin_top"
+                    android:background="@drawable/bg_card"
+                    android:orientation="vertical"
+                    android:padding="@dimen/card_padding"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="@string/structure_title"
+                        android:textColor="@color/text_primary"
+                        android:textSize="@dimen/track_title_size" />
+
+                    <TextView
+                        android:id="@+id/structureStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/structure_analyzing"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+
+                    <com.example.bpm_player.StructureBarView
+                        android:id="@+id/structureBar"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:contentDescription="@string/cd_structure_bar"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/structureLive"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/sectionName"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:fontFamily="sans-serif-medium"
+                                android:maxLines="1"
+                                android:textSize="@dimen/track_title_size" />
+
+                            <TextView
+                                android:id="@+id/phraseLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFeatureSettings="tnum"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <com.example.bpm_player.CountView
+                            android:id="@+id/countView"
+                            android:layout_width="match_parent"
+                            android:layout_height="40dp"
+                            android:layout_marginTop="8dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/phrasePrevButton"
+                            style="@style/Widget.Material3.Button.IconButton.Filled"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:contentDescription="@string/cd_phrase_previous"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:padding="0dp"
+                            app:backgroundTint="@color/bg_icon_button"
+                            app:cornerRadius="24dp"
+                            app:icon="@drawable/ic_skip_previous"
+                            app:iconGravity="textStart"
+                            app:iconSize="18dp"
+                            app:iconTint="@color/text_secondary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/phraseLoopButton"
+                            style="@style/Widget.Material3.Button.IconButton.Filled"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_marginStart="8dp"
+                            android:layout_marginEnd="8dp"
+                            android:contentDescription="@string/cd_phrase_loop"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:padding="0dp"
+                            app:backgroundTint="@color/bg_icon_button"
+                            app:cornerRadius="24dp"
+                            app:icon="@drawable/ic_repeat"
+                            app:iconGravity="textStart"
+                            app:iconSize="18dp"
+                            app:iconTint="@color/text_secondary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/phraseNextButton"
+                            style="@style/Widget.Material3.Button.IconButton.Filled"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:contentDescription="@string/cd_phrase_next"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:padding="0dp"
+                            app:backgroundTint="@color/bg_icon_button"
+                            app:cornerRadius="24dp"
+                            app:icon="@drawable/ic_skip_next"
+                            app:iconGravity="textStart"
+                            app:iconSize="18dp"
+                            app:iconTint="@color/text_secondary" />
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
 

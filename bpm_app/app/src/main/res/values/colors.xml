@@ -11,4 +11,11 @@
     <color name="text_tertiary">#FF6E7F8D</color>
     <color name="outline">#FF263340</color>
     <color name="accent_light">#142EE6A8</color>
+    <!-- Paleta de dados (DESIGN_SYSTEM 3.1.1): só para identificar seções, nunca para ação -->
+    <color name="section_intro">#FF5B8DEF</color>
+    <color name="section_verse">#FFE5B83B</color>
+    <color name="section_pre_chorus">#FFF08A4B</color>
+    <color name="section_chorus">#FFEF5D8B</color>
+    <color name="section_bridge">#FFA77BF3</color>
+    <color name="section_outro">#FF8A9BA8</color>
 </resources>

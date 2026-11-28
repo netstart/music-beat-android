@@ -92,4 +92,21 @@
     <string name="cd_stem_volume">Volume de %1$s</string>
     <string name="privacy_policy">Política de privacidade</string>
     <string name="ads_privacy">Privacidade dos anúncios</string>
+    <string name="structure_title">Estrutura</string>
+    <string name="structure_analyzing">Analisando a estrutura da música…</string>
+    <string name="structure_none">Estrutura não detectada: sem batida clara</string>
+    <string name="structure_hint">Seções, frases e contagem de 1 a 8 detectadas automaticamente</string>
+    <string name="structure_phrase">Frase %1$d de %2$d</string>
+    <string name="section_intro">Intro</string>
+    <string name="section_verse">Verso</string>
+    <string name="section_pre_chorus">Pré-refrão</string>
+    <string name="section_chorus">Refrão</string>
+    <string name="section_bridge">Ponte</string>
+    <string name="section_outro">Final</string>
+    <string name="cd_structure_bar">Seções da música; toque numa seção para ir até ela</string>
+    <string name="cd_count">Contagem %1$d de 8</string>
+    <string name="cd_phrase_previous">Frase anterior</string>
+    <string name="cd_phrase_next">Próxima frase</string>
+    <string name="cd_phrase_loop">Repetir a frase atual</string>
+    <string name="cd_phrase_loop_off">Parar de repetir a frase</string>
 </resources>

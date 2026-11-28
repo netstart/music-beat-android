@@ -11,15 +11,15 @@
         </shape>
     </item>
     <item
-        android:width="200dp"
-        android:height="200dp"
+        android:width="136dp"
+        android:height="136dp"
         android:gravity="top|start"
         android:left="12dp"
         android:top="12dp">
         <shape android:shape="oval">
             <gradient
                 android:type="radial"
-                android:gradientRadius="140dp"
+                android:gradientRadius="96dp"
                 android:centerX="0.5"
                 android:centerY="0.5"
                 android:startColor="#142EE6A8"

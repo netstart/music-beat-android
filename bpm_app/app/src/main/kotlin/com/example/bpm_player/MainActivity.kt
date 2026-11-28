@@ -85,6 +85,11 @@ class MainActivity : AppCompatActivity() {
     private val stemControls = MutableList(StemMixer.STEMS) { StemControl() }
     private val stemRows = arrayOfNulls<ItemStemBinding>(StemMixer.STEMS)
 
+    // Estrutura (seções, frases, contagem 1–8): calculada offline por música; em tempo real só a posição é lida.
+    private var structure: StructureAnalyzer.SongStructure? = null
+    private val structureCache = java.util.concurrent.ConcurrentHashMap<Uri, StructureAnalyzer.SongStructure>()
+    private var loopPhrase: IntRange? = null
+
     private val bpmHoldHandler = Handler(Looper.getMainLooper())
     private var bpmHoldRunnable: Runnable? = null
     private var bpmHoldDelta = 0f
@@ -134,6 +139,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             handler.postDelayed(this, 500)
+        }
+    }
+
+    // A 130 BPM um tempo dura 460 ms: a contagem precisa de ~25 quadros/s enquanto toca
+    private val structureTicker = object : Runnable {
+        override fun run() {
+            updateStructureUi()
+            if (exoPlayer?.isPlaying == true) handler.postDelayed(this, 40)
         }
     }
 
@@ -298,6 +311,7 @@ class MainActivity : AppCompatActivity() {
             setupPlayerControls()
             setupBpmControls()
             setupElements()
+            setupStructure()
             binding.toolbar.menu.add(R.string.settings_title).setOnMenuItemClickListener {
                 startActivity(Intent(this, SettingsActivity::class.java)); true
             }
@@ -632,6 +646,7 @@ class MainActivity : AppCompatActivity() {
     private fun onFilePicked(uri: Uri) {
         val sameSong = uri == playingSongUri // "tocar todas" com uma faixa só recomeça a mesma música: mantém a mesa
         handler.removeCallbacks(positionUpdater)
+        handler.removeCallbacks(structureTicker)
         playingSongUri = uri
         ensureSongInList(uri)
         binding.trackTitle.text = resolveTrackTitle(uri)
@@ -649,6 +664,7 @@ class MainActivity : AppCompatActivity() {
         if (!sameSong) stemControls.indices.forEach { stemControls[it] = StemControl() }
 
         startPlayback(uri)
+        showStructure(null, analyzing = true)
         stemControls.indices.forEach { renderStemRow(it) }
         renderElements()
 
@@ -672,6 +688,16 @@ class MainActivity : AppCompatActivity() {
                     applyBpm(detectedBpm)
                     binding.trackStatus.text = getString(R.string.toast_no_bpm)
                 }
+            }
+
+            // Estrutura: precisa da música inteira (o BPM só olha 20 s); sem batida clara, não há grade
+            pcm = null
+            val found = if (result == null || result.confidence <= 0f) null else structureCache[uri] ?: runCatching {
+                AudioDecoder.decode(applicationContext, uri, 0L)?.let { StructureAnalyzer.analyze(it.samples, it.sampleRate, result.bpm) }
+            }.onFailure { Log.e("BPM_STRUCT", "análise falhou: ${it.javaClass.simpleName}: ${it.message}") }.getOrNull()
+            found?.let { structureCache[uri] = it }
+            withContext(Dispatchers.Main) {
+                if (!isDestroyed && !isFinishing && uri == playingSongUri) showStructure(found, analyzing = false)
             }
         }
 
@@ -719,6 +745,8 @@ class MainActivity : AppCompatActivity() {
                             playingSongUri?.let { binding.trackTitle.text = resolveTrackTitle(it) }
                         }
                         updatePlayFab(isPlaying)
+                        handler.removeCallbacks(structureTicker)
+                        if (isPlaying) handler.post(structureTicker) else updateStructureUi()
                         val playingIndex = songAdapter.songsList().indexOfFirst { it.uri == playingSongUri }
                         if (isPlaying) {
                             if (playingIndex >= 0) songAdapter.setPlayingPosition(playingIndex)
@@ -784,6 +812,92 @@ class MainActivity : AppCompatActivity() {
                 .build()
         }
         return ExoPlayer.Builder(this, renderers).build()
+    }
+
+    // ───────────────────────── Estrutura (DESIGN_SYSTEM 4.13) ─────────────────────────
+
+    private fun setupStructure() {
+        binding.structureBar.onSeek = { ms ->
+            loopPhrase = null
+            renderPhraseLoop()
+            exoPlayer?.seekTo(ms)
+            updateStructureUi()
+        }
+        binding.phrasePrevButton.setOnClickListener { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            jumpPhrase(-1)
+        }
+        binding.phraseNextButton.setOnClickListener { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            jumpPhrase(+1)
+        }
+        binding.phraseLoopButton.setOnClickListener { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            val s = structure
+            val player = exoPlayer
+            loopPhrase = if (loopPhrase != null || s == null || player == null) null else s.phraseAt(s.beatAt(player.currentPosition))
+            renderPhraseLoop()
+        }
+    }
+
+    private fun showStructure(s: StructureAnalyzer.SongStructure?, analyzing: Boolean) {
+        structure = s
+        loopPhrase = null
+        renderPhraseLoop()
+        binding.structureCard.visibility = View.VISIBLE
+        binding.structureStatus.setText(when {
+            analyzing -> R.string.structure_analyzing
+            s == null -> R.string.structure_none
+            else -> R.string.structure_hint
+        })
+        val ready = if (s != null) View.VISIBLE else View.GONE
+        binding.structureBar.visibility = ready
+        binding.structureLive.visibility = ready
+        binding.structureBar.structure = s
+        handler.removeCallbacks(structureTicker)
+        if (exoPlayer?.isPlaying == true) handler.post(structureTicker) else updateStructureUi()
+    }
+
+    /** Barra, seção, frase e contagem na posição atual; com o loop de frase ligado, volta ao início ao passar do fim. */
+    private fun updateStructureUi() {
+        val s = structure ?: return
+        val player = exoPlayer ?: return
+        val duration = player.duration.coerceAtLeast(0L)
+        var pos = player.currentPosition
+        loopPhrase?.let { r ->
+            val start = if (r.first == 0) 0L else s.beatStartMs(r.first)
+            val end = s.beatStartMs(r.last + 1).let { if (duration > 0) minOf(it, duration - 100) else it }
+            if (pos >= end) { player.seekTo(start); pos = start }
+        }
+        binding.structureBar.durationMs = duration
+        binding.structureBar.positionMs = pos
+        val beat = s.beatAt(pos)
+        val section = s.sections[s.sectionIndexAt(beat)]
+        binding.sectionName.setText(section.kind.labelRes())
+        binding.sectionName.setTextColor(ContextCompat.getColor(this, section.kind.colorRes()))
+        val starts = s.phraseStarts(section)
+        binding.phraseLabel.text = getString(R.string.structure_phrase, starts.indexOfLast { beat >= it } + 1, starts.size)
+        binding.countView.count = if (pos < s.firstBeatMs) 0 else s.count(beat)
+    }
+
+    /** Frase seguinte; para trás, volta ao início da atual ou, se já está nele, à anterior (padrão de player). */
+    private fun jumpPhrase(direction: Int) {
+        val s = structure ?: return
+        val player = exoPlayer ?: return
+        val beat = s.beatAt(player.currentPosition)
+        val starts = s.allPhraseStarts()
+        val cur = starts.indexOfLast { beat >= it }.coerceAtLeast(0)
+        val target = if (direction > 0) cur + 1 else if (beat - starts[cur] >= 2) cur else (cur - 1).coerceAtLeast(0)
+        val startBeat = starts.getOrNull(target) ?: return
+        if (loopPhrase != null) loopPhrase = s.phraseAt(startBeat)
+        player.seekTo(if (target == 0) 0L else s.beatStartMs(startBeat))
+        updateStructureUi()
+    }
+
+    private fun renderPhraseLoop() {
+        val on = loopPhrase != null
+        binding.phraseLoopButton.iconTint = ColorStateList.valueOf(ContextCompat.getColor(this, if (on) R.color.accent else R.color.text_secondary))
+        binding.phraseLoopButton.contentDescription = getString(if (on) R.string.cd_phrase_loop_off else R.string.cd_phrase_loop)
     }
 
     // ───────────────────────── Elementos (stems) ─────────────────────────
@@ -1362,6 +1476,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(positionUpdater)
+        handler.removeCallbacks(structureTicker)
         exoPlayer?.release()
         exoPlayer = null
     }
