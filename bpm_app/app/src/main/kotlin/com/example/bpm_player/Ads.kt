@@ -53,9 +53,12 @@ object Ads {
 
     private fun loadBanner(activity: Activity, container: FrameLayout) {
         val metrics = activity.resources.displayMetrics
+        // banner na largura útil da área que rola (descontado o padding lateral da tela)
+        val parent = container.parent as? android.view.ViewGroup
+        val px = parent?.let { it.width - it.paddingLeft - it.paddingRight }?.takeIf { it > 0 } ?: metrics.widthPixels
         val adView = AdView(activity).apply {
             adUnitId = BuildConfig.ADMOB_BANNER_ID
-            setAdSize(AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(activity, (metrics.widthPixels / metrics.density).toInt()))
+            setAdSize(AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(activity, (px / metrics.density).toInt()))
             adListener = object : AdListener() {
                 override fun onAdLoaded() { container.visibility = View.VISIBLE }
             }

@@ -6,7 +6,7 @@
 
 | Formato | Usar? | Por quê |
 |---|---|---|
-| **Banner adaptativo fixo** acima do rodapé | ✅ Fase 1 | Não interrompe a música; receita contínua enquanto o app fica aberto (uso típico: treino/ensaio com a tela ligada) |
+| **Banner adaptativo** no fim da área que rola (último item) | ✅ Fase 1 | Não interrompe a música; receita contínua enquanto o app fica aberto (uso típico: treino/ensaio com a tela ligada) |
 | **Recompensado** ("assista e separe os elementos") | ⏳ Fase 2 | A separação de stems é o recurso mais valioso e caro; troca justa e opt-in. Só depois de medir uso real |
 | **Intersticial** | ❌ | Interromperia a reprodução — pior avaliação e retenção num player |
 | **App open** | ❌ | Atrasa o uso imediato do player |

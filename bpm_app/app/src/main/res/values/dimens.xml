@@ -19,6 +19,6 @@
     <dimen name="track_title_size">15sp</dimen>
     <dimen name="song_icon_size">40dp</dimen>
     <dimen name="song_drag_handle_size">48dp</dimen>
-    <dimen name="drawer_width">320dp</dimen>
+    <dimen name="sheet_peek">72dp</dimen> <!-- painel de músicas recolhido: alça + cabeçalho de 48dp -->
     <dimen name="track_time_size">12sp</dimen>
 </resources>

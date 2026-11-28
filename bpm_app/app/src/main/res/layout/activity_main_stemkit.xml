@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/drawerLayout"
+    android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_base"
-    android:fitsSystemWindows="true"
-    tools:openDrawer="start">
+    android:fitsSystemWindows="true">
 
     <!-- ── Conteúdo principal ── -->
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -22,7 +21,6 @@
             android:background="@color/bg_base"
             app:title="@string/app_name"
             app:titleTextColor="@color/text_primary"
-            app:navigationIcon="@drawable/ic_menu"
             app:popupTheme="@style/ThemeOverlay.Material3.Dark"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -36,7 +34,7 @@
             android:fillViewport="true"
             android:scrollbars="none"
             app:layout_constraintTop_toBottomOf="@id/toolbar"
-            app:layout_constraintBottom_toTopOf="@id/adContainer"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
@@ -370,189 +368,91 @@
                             app:iconTint="@color/text_secondary" />
                     </LinearLayout>
                 </LinearLayout>
+
+                <!-- Banner AdMob: último item da área que rola; some até carregar (ver docs/MONETIZACAO.md) -->
+                <FrameLayout
+                    android:id="@+id/adContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/card_margin_top"
+                    android:visibility="gone" />
             </LinearLayout>
             </androidx.core.widget.NestedScrollView>
 
-        <!-- Banner AdMob: some até carregar (ver docs/MONETIZACAO.md) -->
-        <FrameLayout
-            android:id="@+id/adContainer"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:layout_constraintBottom_toTopOf="@id/bottomBar"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- Bottom Bar (fixo no rodapé) -->
+    <!-- ── Lista de músicas: painel inferior arrastável (DESIGN_SYSTEM.md 4.7) ──
+         Recolhido: só o cabeçalho, logo acima dos controles. Aberto: a lista; os controles seguem visíveis.
+         As margens de cima (toolbar) e de baixo (rodapé) são ajustadas no código conforme os insets. -->
+    <LinearLayout
+        android:id="@+id/songSheet"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_sheet"
+        android:clickable="true"
+        android:focusable="false"
+        android:orientation="vertical"
+        app:behavior_hideable="false"
+        app:behavior_peekHeight="@dimen/sheet_peek"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
+
         <LinearLayout
-            android:id="@+id/bottomBar"
-            android:layout_width="0dp"
+            android:id="@+id/songSheetHeader"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_card"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="@string/cd_songs_expand"
+            android:focusable="true"
             android:orientation="vertical"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            android:paddingTop="8dp">
+
+            <View
+                android:layout_width="32dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center_horizontal"
+                android:background="@drawable/bg_sheet_handle"
+                android:importantForAccessibility="no" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="12dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="10dp">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/selectButton"
-                    style="@style/Widget.Material3.Button.IconButton.Filled"
-                    android:layout_width="@dimen/footer_button_height"
-                    android:layout_height="@dimen/footer_button_height"
-                    android:contentDescription="@string/cd_choose"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:padding="0dp"
-                    app:backgroundTint="@color/bg_icon_button"
-                    app:cornerRadius="20dp"
-                    app:icon="@drawable/ic_folder"
-                    app:iconGravity="textStart"
-                    app:iconSize="18dp"
-                    app:iconTint="@color/text_secondary" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/repeatButton"
-                    style="@style/Widget.Material3.Button.IconButton.Filled"
-                    android:layout_width="@dimen/footer_button_height"
-                    android:layout_height="@dimen/footer_button_height"
-                    android:layout_marginStart="8dp"
-                    android:contentDescription="@string/cd_repeat"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:padding="0dp"
-                    app:backgroundTint="@color/bg_icon_button"
-                    app:cornerRadius="20dp"
-                    app:icon="@drawable/ic_repeat"
-                    app:iconGravity="textStart"
-                    app:iconSize="18dp"
-                    app:iconTint="@color/text_secondary" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/loopAllButton"
-                    style="@style/Widget.Material3.Button.IconButton.Filled"
-                    android:layout_width="@dimen/footer_button_height"
-                    android:layout_height="@dimen/footer_button_height"
-                    android:layout_marginStart="8dp"
-                    android:contentDescription="@string/cd_loop_all"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:padding="0dp"
-                    app:backgroundTint="@color/bg_icon_button"
-                    app:cornerRadius="20dp"
-                    app:icon="@drawable/ic_loop_all"
-                    app:iconGravity="textStart"
-                    app:iconSize="18dp"
-                    app:iconTint="@color/text_secondary" />
-
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/skipPreviousButton"
-                    style="@style/Widget.Material3.Button.IconButton.Filled"
-                    android:layout_width="@dimen/footer_button_height"
-                    android:layout_height="@dimen/footer_button_height"
-                    android:layout_marginEnd="8dp"
-                    android:contentDescription="@string/cd_skip_previous"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:padding="0dp"
-                    app:backgroundTint="@color/bg_icon_button"
-                    app:cornerRadius="20dp"
-                    app:icon="@drawable/ic_skip_previous"
-                    app:iconGravity="textStart"
-                    app:iconSize="18dp"
-                    app:iconTint="@color/text_secondary" />
-
-                <com.google.android.material.floatingactionbutton.FloatingActionButton
-                    android:id="@+id/playFab"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:contentDescription="@string/cd_play"
-                    android:src="@drawable/ic_play"
-                    app:backgroundTint="@color/accent"
-                    app:tint="@color/on_accent" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/skipNextButton"
-                    style="@style/Widget.Material3.Button.IconButton.Filled"
-                    android:layout_width="@dimen/footer_button_height"
-                    android:layout_height="@dimen/footer_button_height"
-                    android:layout_marginStart="8dp"
-                    android:contentDescription="@string/cd_skip_next"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:padding="0dp"
-                    app:backgroundTint="@color/bg_icon_button"
-                    app:cornerRadius="20dp"
-                    app:icon="@drawable/ic_skip_next"
-                    app:iconGravity="textStart"
-                    app:iconSize="18dp"
-                    app:iconTint="@color/text_secondary" />
-            </LinearLayout>
-        </LinearLayout>
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <!-- ── Drawer Navigation (esquerda) ── -->
-    <LinearLayout
-        android:id="@+id/drawerView"
-        android:layout_width="@dimen/drawer_width"
-        android:layout_height="match_parent"
-        android:layout_gravity="start"
-        android:background="@color/bg_card"
-        android:orientation="vertical"
-        android:paddingHorizontal="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="8dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.08"
-                android:text="@string/drawer_playlist_title"
-                android:textAllCaps="true"
-                android:textColor="@color/text_secondary"
-                android:textSize="@dimen/playlist_label_size" />
-
-            <TextView
-                android:id="@+id/sortLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="?android:attr/selectableItemBackground"
-                android:contentDescription="@string/cd_sort"
-                android:drawableStart="@drawable/ic_sort"
-                android:drawablePadding="6dp"
-                android:gravity="center_vertical"
                 android:minHeight="48dp"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.06"
-                android:paddingHorizontal="6dp"
-                android:paddingVertical="2dp"
-                android:text="@string/sort_title"
-                android:textAllCaps="true"
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="8dp">
+
+                <TextView
+                    android:id="@+id/songsTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif-medium"
+                    android:fontFeatureSettings="tnum"
+                    android:letterSpacing="0.08"
+                    android:text="@string/drawer_playlist_title"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="@dimen/playlist_label_size" />
+
+                <TextView
+                    android:id="@+id/sortLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:contentDescription="@string/cd_sort"
+                    android:drawableStart="@drawable/ic_sort"
+                    android:drawablePadding="6dp"
+                    android:gravity="center_vertical"
+                    android:minHeight="48dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.06"
+                    android:paddingHorizontal="8dp"
+                    android:text="@string/sort_title"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <TextView
@@ -568,13 +468,132 @@
             android:visibility="gone" />
 
         <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/drawerSongList"
+            android:id="@+id/songList"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:clipToPadding="false"
-            android:paddingHorizontal="4dp"
-            android:paddingBottom="4dp" />
+            android:paddingHorizontal="8dp"
+            android:paddingBottom="8dp" />
     </LinearLayout>
 
-</androidx.drawerlayout.widget.DrawerLayout>
+    <!-- Rodapé fixo: por cima do painel de músicas (vem depois dele no XML) -->
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_card"
+        android:orientation="vertical"
+        android:clickable="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="10dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/selectButton"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="@dimen/footer_button_height"
+                android:layout_height="@dimen/footer_button_height"
+                android:contentDescription="@string/cd_choose"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                app:backgroundTint="@color/bg_icon_button"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_folder"
+                app:iconGravity="textStart"
+                app:iconSize="18dp"
+                app:iconTint="@color/text_secondary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/repeatButton"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="@dimen/footer_button_height"
+                android:layout_height="@dimen/footer_button_height"
+                android:layout_marginStart="8dp"
+                android:contentDescription="@string/cd_repeat"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                app:backgroundTint="@color/bg_icon_button"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_repeat"
+                app:iconGravity="textStart"
+                app:iconSize="18dp"
+                app:iconTint="@color/text_secondary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/loopAllButton"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="@dimen/footer_button_height"
+                android:layout_height="@dimen/footer_button_height"
+                android:layout_marginStart="8dp"
+                android:contentDescription="@string/cd_loop_all"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                app:backgroundTint="@color/bg_icon_button"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_loop_all"
+                app:iconGravity="textStart"
+                app:iconSize="18dp"
+                app:iconTint="@color/text_secondary" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/skipPreviousButton"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="@dimen/footer_button_height"
+                android:layout_height="@dimen/footer_button_height"
+                android:layout_marginEnd="8dp"
+                android:contentDescription="@string/cd_skip_previous"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                app:backgroundTint="@color/bg_icon_button"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_skip_previous"
+                app:iconGravity="textStart"
+                app:iconSize="18dp"
+                app:iconTint="@color/text_secondary" />
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/playFab"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:contentDescription="@string/cd_play"
+                android:src="@drawable/ic_play"
+                app:backgroundTint="@color/accent"
+                app:tint="@color/on_accent" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/skipNextButton"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="@dimen/footer_button_height"
+                android:layout_height="@dimen/footer_button_height"
+                android:layout_marginStart="8dp"
+                android:contentDescription="@string/cd_skip_next"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                app:backgroundTint="@color/bg_icon_button"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_skip_next"
+                app:iconGravity="textStart"
+                app:iconSize="18dp"
+                app:iconTint="@color/text_secondary" />
+        </LinearLayout>
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

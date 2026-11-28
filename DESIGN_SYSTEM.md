@@ -57,17 +57,12 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 │  │ ────●──────────  0:00/2:34 │  │  ← scrubber + tempos
 │  ╰──────────────────────────────╯  │
 │                                 │
-│  ─── Rodapé fixo ─────────────  │
-│  ╭──────────────────────────────╮  │
-│  │ Músicas do dispositivo    [≡] │  │  ← header com ordenação
-│  │                              │  │
-│  │ (▶) Título da música       2:34│  │  ← lista: ícone de play/pause
-│  │     Artista                │  │  │     por item, duração
-│  │ (♫) Outra música          3:45│  │
-│  │     Artista                │  │
-│  │ ...                           │  │
-│  │ [📁] [↻] [🔁]        (▶)   │  │  ← rodapé: ícones só, sem texto
-│  ╰──────────────────────────────╯  │
+│  [ banner AdMob ]                  │  ← último item da área que rola
+│                                 │
+│  ╭──────── ▬ ─────────────────────╮  │  ← painel de músicas (arrastável)
+│  │ MÚSICAS DO DISPOSITIVO · 12  ≡ │  │     recolhido: só este cabeçalho
+│  ╰──────────────────────────────╯  │     aberto: lista até a toolbar
+│  [📁] [↻] [🔁]      [⏮] (▶) [⏭]  │  ← rodapé fixo por cima do painel
 └─────────────────────────────────┘
 ```
 
@@ -198,20 +193,23 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 - O número pulsa (`motion/pulse`) a cada atualização.
 - Sem ícone decorativo: o número é o herói.
 
-### 4.7 Lista de músicas do dispositivo
+### 4.7 Lista de músicas do dispositivo (painel inferior)
+- Fica num **painel inferior arrastável** (`BottomSheetBehavior` num `CoordinatorLayout`), não em menu lateral — padrão "A seguir" do YouTube Music e da fila do Apple Music; o Material desaconselha drawer em telefone.
+- Recolhido: alça (32×4dp, `text/tertiary`) + cabeçalho "MÚSICAS DO DISPOSITIVO · N" (`caption`) e a ordenação, logo acima do rodapé (`sheet_peek` = 72dp + altura do rodapé).
+- Aberto: a lista vai até logo abaixo da toolbar; o rodapé (play, anterior/próxima) continua visível por cima. Arraste, toque no cabeçalho ou "voltar" alternam/recolhem.
+- Fundo `bg/card` com raio `radius/card` só em cima (`bg_sheet`).
 - `RecyclerView` com `LinearLayoutManager`.
 - Cada item: ícone (40dp) + título + artista + duração + handle de drag (modo manual).
 - Ícone de item:
   - Tocando → `ic_pause` em `accent`
   - Selecionado e pausado → `ic_play` em `text_secondary`
   - Não selecionado → `ic_music_note` em `text_tertiary`
-- Toque único = selecionar; duplo toque = tocar.
+- **Um toque toca a música** (como em todo player); tocar na que já toca não reinicia.
 - Ícone é clicável: se tocando → pausa; se não → inicia reprodução.
 - Modo de ordenação: **Título** (A→Z), **Artista** (A→Z + título), **Manual** (drag com long-press).
 - Toque no rótulo de ordenação (alvo ≥ 48dp) abre a escolha. Modo e ordem manual ficam salvos no aparelho (`SharedPreferences` `song_sort`); músicas novas entram no fim da ordem manual.
 - Handle de drag (`ic_drag`) visível apenas no modo **Manual**.
 - Estado vazio: texto centrado ("Nenhuma música encontrada no dispositivo" ou pedido de permissão).
-- Altura fixa: 140dp (base), 280dp (tablet).
 
 ### 4.8 Botões do rodapé (ações)
 - Estilo `Widget.Material3.Button.IconButton.Filled`, 40×40dp, raio 20dp, **sem texto**.
@@ -220,13 +218,14 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 - Exclusão mútua: "Repetir" e "Tocar todas" não podem estar ativos ao mesmo tempo.
 
 ### 4.10 Banner de anúncio (AdMob)
-- Banner adaptativo ancorado, largura total, **logo acima do rodapé** (`adContainer`); fica `gone` até carregar.
+- Banner adaptativo na largura útil, **último item da área que rola** (`adContainer`, depois do cartão Elementos); fica `gone` até carregar.
 - Nunca intersticial nem app open: não interromper a música. Plano completo em `docs/MONETIZACAO.md`.
 - Consentimento UMP antes de pedir anúncios; item **Privacidade dos anúncios** no menu da toolbar quando exigido.
 
 ### 4.11 Cartão Elementos (separação)
 - Mesmo cartão `bg_card` do Now Playing; título `title`, status `body` `text_secondary`, progresso `LinearProgressIndicator` `accent`.
 - A separação **nunca começa sozinha**: só pelo botão **Separar elementos** (vira **Cancelar** durante o trabalho).
+- Trocar de música **não interrompe** a separação: ela termina em segundo plano; o cartão da outra música mostra "Separando outra música… N%" com o botão desabilitado.
 - Com os elementos prontos: linhas solo/mudo/volume e o botão **Limpar elementos** (`ic_delete` 18dp `text_secondary`), que apaga os arquivos da música atual e volta ao áudio original sem parar a reprodução.
 - Botões tonais `bg/icon-button`, altura 48dp, raio `radius/pill`, lado a lado com 8dp entre eles.
 
@@ -255,7 +254,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
   - `REPEAT_MODE_ONE` quando "Repetir música atual" está ativo.
   - `playNextInQueue()` avança para próxima música; quando `isLoopingAll=true` e na última → volta à primeira.
   - Exclusão mútua: ativar um desativa o outro.
-- **GestureDetector**: `onDown` retorna `true`; `onSingleTapConfirmed` = selecionar; `onDoubleTap` = tocar. Implementado via `RecyclerView.OnItemTouchListener` com `onInterceptTouchEvent` e `onTouchEvent` (não `SimpleOnItemTouchListener`).
+- **GestureDetector**: `onDown` retorna `true`; `onSingleTapUp` = tocar (sem esperar duplo toque). Implementado via `RecyclerView.OnItemTouchListener` com `onInterceptTouchEvent` e `onTouchEvent` (não `SimpleOnItemTouchListener`).
 - **Drag-and-drop**: `ItemTouchHelper.SimpleCallback(UP|DOWN, 0)`, `isLongPressDragEnabled` retorna `true` apenas no modo **Manual**.
 
 ---
@@ -303,5 +302,6 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 |---|---|---|
 | 1.0 | 2026-09-01 | Criação do design system a partir da pesquisa de mercado (Spotify, Apple Music, YouTube Music, Poweramp, Retro Music; Material 3/Material You). |
 | 1.1 | 2026-09-03 | Hero card com controles à direita em layout horizontal. Botão "Original" abaixo de − e +. Botões do rodapé agora só ícone (IconButton.Filled, sem texto). Botão "Tocar todas em sequência" adicionado com exclusão mútua com "Repetir". Lista de músicas do dispositivo com RecyclerView funcional, double-tap para tocar, ícone play/pause por item. Tempo atual/total em tempo real. |
+| 1.4 | 2026-11-27 | Lista de músicas em painel inferior arrastável (sai o menu hambúrguer); um toque toca; banner AdMob como último item da área que rola. |
 | 1.3 | 2026-11-27 | Cartão Elementos (4.11) com "Separar" e "Limpar elementos"; tela de Configurações (4.12) para a pasta dos elementos separados. |
 | 1.2 | 2026-11-27 | Redesign M3 Expressive: sliders com trilha grossa e alça em pílula (Material 1.13), herói centrado com −/+ de 48dp nas laterais, toolbar sem fundo (`bg/base`). |

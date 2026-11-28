@@ -30,7 +30,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.drawerlayout.widget.DrawerLayout
+import androidx.activity.OnBackPressedCallback
+import androidx.core.view.updatePadding
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -289,7 +291,7 @@ class MainActivity : AppCompatActivity() {
             setContentView(binding.root)
             Log.e("BPM_DEBUG", "setContentView OK")
 
-            setupDrawer()
+            setupSongSheet()
             setupRecyclerViews()
             binding.sortLabel.setOnClickListener { showSortDialog() }
             applySortMode(runCatching { SortMode.valueOf(sortPrefs.getString("mode", null)!!) }.getOrDefault(SortMode.TITLE))
@@ -320,20 +322,15 @@ class MainActivity : AppCompatActivity() {
             // Edge-to-edge: main content draws behind status bar, bottom bar above nav bar
             WindowCompat.setDecorFitsSystemWindows(window, false)
             
-            // Main content: top inset for status bar, bottom inset for navigation bar
-            ViewCompat.setOnApplyWindowInsetsListener(binding.mainContent) { v, insets ->
+            // Conteúdo: inset da status bar em cima; o rodapé fica com o da navigation bar
+            ViewCompat.setOnApplyWindowInsetsListener(binding.rootLayout) { _, insets ->
                 val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
                 val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
                 val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-                val bottomInset = max(navBars.bottom, ime.bottom)
-                v.setPadding(statusBars.left, statusBars.top, statusBars.right, bottomInset)
-                insets
-            }
-            
-            // Drawer: full system bars insets
-            ViewCompat.setOnApplyWindowInsetsListener(binding.drawerView) { v, insets ->
-                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+                binding.mainContent.setPadding(statusBars.left, statusBars.top, statusBars.right, 0)
+                binding.bottomBar.setPadding(navBars.left, 0, navBars.right, max(navBars.bottom, ime.bottom))
+                // painel aberto para logo abaixo da toolbar (margem no painel quebra o BottomSheetBehavior)
+                BottomSheetBehavior.from(binding.songSheet).expandedOffset = statusBars.top + binding.toolbar.layoutParams.height
                 insets
             }
             
@@ -344,38 +341,64 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupDrawer() {
-        val drawerLayout = binding.drawerLayout
-        // Garante que o ícone do menu (hambúrguer) esteja sempre visível
-        binding.toolbar.setNavigationIcon(R.drawable.ic_menu)
-        binding.toolbar.setNavigationOnClickListener {
-            if (drawerLayout.isDrawerOpen(binding.drawerView)) {
-                drawerLayout.closeDrawer(binding.drawerView)
-            } else {
-                drawerLayout.openDrawer(binding.drawerView)
+    /**
+     * Lista de músicas num painel inferior arrastável (padrão "A seguir" do YouTube Music / fila do Apple Music):
+     * recolhido mostra só o cabeçalho acima do rodapé; toque ou arraste abre; "voltar" recolhe.
+     */
+    private fun setupSongSheet() {
+        val sheet = BottomSheetBehavior.from(binding.songSheet)
+        sheet.isFitToContents = false // abre até o expandedOffset (abaixo da toolbar); meio aberto também vale
+        val peek = resources.getDimensionPixelSize(R.dimen.sheet_peek)
+        val spacer = resources.getDimensionPixelSize(R.dimen.footer_spacer)
+        val listPad = resources.getDimensionPixelSize(R.dimen.card_margin_top)
+        // O rodapé fica por cima do painel: o recolhido aparece logo acima dele e nada fica escondido atrás.
+        // Roda fora do passe de layout (mudar o peek durante o layout é ignorado) e a cada mudança de altura do rodapé.
+        var lastBarH = -1
+        binding.bottomBar.viewTreeObserver.addOnGlobalLayoutListener {
+            val barH = binding.bottomBar.height
+            if (barH == 0 || barH == lastBarH) return@addOnGlobalLayoutListener
+            lastBarH = barH
+            binding.bottomBar.post {
+                sheet.peekHeight = peek + barH
+                binding.songList.updatePadding(bottom = barH + listPad)
+                binding.scroll.getChildAt(0).updatePadding(bottom = spacer + peek + barH)
             }
         }
+        binding.songSheetHeader.setOnClickListener {
+            sheet.state = if (sheet.state == BottomSheetBehavior.STATE_EXPANDED) BottomSheetBehavior.STATE_COLLAPSED
+            else BottomSheetBehavior.STATE_EXPANDED
+        }
+        val back = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() { sheet.state = BottomSheetBehavior.STATE_COLLAPSED }
+        }
+        onBackPressedDispatcher.addCallback(this, back)
+        sheet.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
+            override fun onStateChanged(view: View, state: Int) {
+                back.isEnabled = state == BottomSheetBehavior.STATE_EXPANDED
+                binding.songSheetHeader.contentDescription = getString(
+                    if (state == BottomSheetBehavior.STATE_EXPANDED) R.string.cd_songs_collapse else R.string.cd_songs_expand
+                )
+            }
+            override fun onSlide(view: View, offset: Float) = Unit
+        })
     }
 
     private fun setupRecyclerViews() {
         songAdapter = SongAdapter()
-        binding.drawerSongList.layoutManager = LinearLayoutManager(this)
-        binding.drawerSongList.adapter = songAdapter
-        binding.drawerSongList.setHasFixedSize(true)
+        binding.songList.layoutManager = LinearLayoutManager(this)
+        binding.songList.adapter = songAdapter
+        binding.songList.setHasFixedSize(true)
 
         val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean = true
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                handleRecyclerViewTap(e, false)
-                return true
-            }
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                handleRecyclerViewTap(e, true)
+            // toque único já toca: sem esperar o tempo do duplo toque
+            override fun onSingleTapUp(e: MotionEvent): Boolean {
+                handleRecyclerViewTap(e)
                 return true
             }
         })
 
-        binding.drawerSongList.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
+        binding.songList.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
             override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
                 gestureDetector.onTouchEvent(e)
                 return false
@@ -449,7 +472,7 @@ class MainActivity : AppCompatActivity() {
                 super.onChildDraw(c, rv, vh, dX, dY, actionState, isCurrentlyActive)
             }
         })
-        itemTouchHelper?.attachToRecyclerView(binding.drawerSongList)
+        itemTouchHelper?.attachToRecyclerView(binding.songList)
     }
 
     private fun setupPlayerControls() {
@@ -621,8 +644,7 @@ class MainActivity : AppCompatActivity() {
         currentArtist = null
         exoPlayer?.release()
         exoPlayer = null
-        // Trocou de música: a separação em andamento era de outra faixa.
-        StemSeparator.state.value.belongsTo()?.let { if (it != uri) StemSeparator.cancel() }
+        // Trocou de música: a separação em andamento (de outra faixa) continua; só o resultado pronto volta ao repouso.
         StemSeparator.reset()
         if (!sameSong) stemControls.indices.forEach { stemControls[it] = StemControl() }
 
@@ -894,6 +916,11 @@ class MainActivity : AppCompatActivity() {
             }
             mine && state is StemState.Downloading -> showProgress(getString(R.string.elements_downloading, state.percent), state.percent)
             mine && state is StemState.Separating -> showProgress(getString(R.string.elements_separating, state.percent), state.percent)
+            busyElsewhere -> {
+                val pct = (state as? StemState.Separating)?.percent ?: (state as? StemState.Downloading)?.percent ?: 0
+                binding.elementsStatus.text = getString(R.string.elements_busy_other, pct)
+                binding.elementsAction.text = getString(R.string.btn_separate)
+            }
             mine && state is StemState.Failed -> {
                 binding.elementsStatus.text = getString(R.string.elements_failed, state.reason)
                 binding.elementsAction.text = getString(R.string.btn_retry)
@@ -1196,13 +1223,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateEmptyState() {
         val isEmpty = songAdapter.songsList().isEmpty()
+        binding.songsTitle.text = getString(R.string.songs_title_count, songAdapter.songsList().size)
         if (isEmpty) {
             binding.emptySongList.text = if (hasAudioPermission()) getString(R.string.empty_song_list) else getString(R.string.empty_song_list_no_permission)
             binding.emptySongList.visibility = View.VISIBLE
-            binding.drawerSongList.visibility = View.GONE
+            binding.songList.visibility = View.GONE
         } else {
             binding.emptySongList.visibility = View.GONE
-            binding.drawerSongList.visibility = View.VISIBLE
+            binding.songList.visibility = View.VISIBLE
         }
     }
 
@@ -1235,21 +1263,18 @@ class MainActivity : AppCompatActivity() {
         if (selectedIndex >= 0) songAdapter.setSelectedPosition(selectedIndex)
     }
 
-    private fun handleRecyclerViewTap(e: MotionEvent, isDoubleTap: Boolean) {
-        val recyclerView = binding.drawerSongList
+    private fun handleRecyclerViewTap(e: MotionEvent) {
+        val recyclerView = binding.songList
         val child = recyclerView.findChildViewUnder(e.x, e.y) ?: return
         val position = recyclerView.getChildAdapterPosition(child)
         if (position == RecyclerView.NO_POSITION) return
         val song = songAdapter.getSongAt(position) ?: return
-        if (isDoubleTap) {
-            selectedSongUri = song.uri
-            songAdapter.setSelectedPosition(position)
-            songAdapter.setPlayingPosition(position)
-            onFilePicked(song.uri)
-        } else {
-            selectedSongUri = song.uri
-            songAdapter.setSelectedPosition(position)
-        }
+        // Um toque toca a música, como em qualquer player; tocar a que já está tocando só a mantém
+        if (song.uri == playingSongUri) return
+        selectedSongUri = song.uri
+        songAdapter.setSelectedPosition(position)
+        songAdapter.setPlayingPosition(position)
+        onFilePicked(song.uri)
     }
 
     private fun formatTime(ms: Long): String {

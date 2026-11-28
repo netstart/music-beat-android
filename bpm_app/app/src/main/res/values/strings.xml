@@ -65,6 +65,10 @@
     <string name="btn_separate">Separar elementos</string>
     <string name="btn_download_separate">Baixar modelo e separar</string>
     <string name="btn_clear_elements">Limpar elementos</string>
+    <string name="songs_title_count">Músicas do dispositivo · %1$d</string>
+    <string name="cd_songs_expand">Abrir lista de músicas</string>
+    <string name="cd_songs_collapse">Recolher lista de músicas</string>
+    <string name="elements_busy_other">Separando outra música… %1$d%% · esta pode ser separada em seguida</string>
     <string name="elements_cleared">Elementos desta música apagados</string>
     <string name="settings_title">Configurações</string>
     <string name="settings_stems_title">Elementos separados</string>
