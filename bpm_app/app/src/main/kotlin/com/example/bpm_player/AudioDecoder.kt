@@ -13,15 +13,16 @@ import java.nio.ByteOrder
  * Decodifica um arquivo de áudio (MP3, AAC, etc.) para PCM mono em float,
  * usando MediaExtractor + MediaCodec — sem NDK, sem bibliotecas externas.
  *
- * Decodifica no máximo [maxDurationUs] microssegundos do início do arquivo,
- * o que já é mais que suficiente para a detecção de BPM.
+ * Decodifica no máximo [maxDurationUs] microssegundos; em faixas longas começa em
+ * [SKIP_INTRO_US] para pular introduções sem bateria, que derrubam a detecção de BPM.
  */
     object AudioDecoder {
 
         data class PcmData(val samples: FloatArray, val sampleRate: Int)
 
         private const val TIMEOUT_US = 10_000L
-        private const val DEFAULT_MAX_DURATION_US = 15_000_000L // 15 s — suficiente para BPM
+        private const val DEFAULT_MAX_DURATION_US = 20_000_000L // 20 s — suficiente para BPM
+        private const val SKIP_INTRO_US = 30_000_000L
 
     fun decode(
         context: Context,
@@ -49,6 +50,10 @@ import java.nio.ByteOrder
             if (trackIndex < 0 || trackFormat == null) return null
 
             extractor.selectTrack(trackIndex)
+            val durationUs = if (trackFormat.containsKey(MediaFormat.KEY_DURATION)) trackFormat.getLong(MediaFormat.KEY_DURATION) else 0L
+            val startUs = if (maxDurationUs > 0L && durationUs >= SKIP_INTRO_US + maxDurationUs) SKIP_INTRO_US else 0L
+            if (startUs > 0L) extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+            val endUs = startUs + maxDurationUs
 
             val mime = trackFormat.getString(MediaFormat.KEY_MIME) ?: return null
             var sampleRate = trackFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
@@ -60,7 +65,8 @@ import java.nio.ByteOrder
             codec.start()
 
             val info = MediaCodec.BufferInfo()
-            val pcmBuilder = ArrayList<Float>()
+            // FloatArray que cresce: ArrayList<Float> criava um objeto por amostra (GC travava a análise)
+            var pcm = FloatArray(if (maxDurationUs > 0L) (maxDurationUs / 1_000_000L * sampleRate + sampleRate).toInt() else sampleRate * 60)
             var pcmCount = 0
             var inputDone = false
             var outputDone = false
@@ -73,7 +79,7 @@ import java.nio.ByteOrder
                     if (inIndex >= 0) {
                         val buffer = codec.getInputBuffer(inIndex) ?: continue
                         val size = extractor.readSampleData(buffer, 0)
-                        if (size < 0 || (!decodeAll && extractor.sampleTime > maxDurationUs)) {
+                        if (size < 0 || (!decodeAll && extractor.sampleTime > endUs)) {
                             codec.queueInputBuffer(
                                 inIndex, 0, 0, 0,
                                 MediaCodec.BUFFER_FLAG_END_OF_STREAM
@@ -113,16 +119,16 @@ import java.nio.ByteOrder
                                     while (buffer.remaining() >= 4 * channels) {
                                         var sum = 0f
                                         repeat(channels) { sum += buffer.float }
-                                        pcmBuilder.add(sum / channels)
-                                        pcmCount++
+                                        if (pcmCount == pcm.size) pcm = pcm.copyOf(pcm.size * 2)
+                                        pcm[pcmCount++] = sum / channels
                                     }
                                 }
                                 else -> { // ENCODING_PCM_16BIT
                                     while (buffer.remaining() >= 2 * channels) {
                                         var sum = 0
                                         repeat(channels) { sum += buffer.short.toInt() }
-                                        pcmBuilder.add(sum / (32768f * channels))
-                                        pcmCount++
+                                        if (pcmCount == pcm.size) pcm = pcm.copyOf(pcm.size * 2)
+                                        pcm[pcmCount++] = sum / (32768f * channels)
                                     }
                                 }
                             }
@@ -137,7 +143,7 @@ import java.nio.ByteOrder
             }
 
             if (pcmCount == 0) return null
-            return PcmData(pcmBuilder.toFloatArray(), sampleRate)
+            return PcmData(pcm.copyOf(pcmCount), sampleRate)
         } catch (e: Exception) {
             android.util.Log.e("BPM_DECODE", "decode failed: ${e.javaClass.simpleName}: ${e.message}")
             return null
