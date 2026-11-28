@@ -110,6 +110,18 @@ class StructureAnalyzerTest {
     }
 
     @Test
+    fun savedTextRoundTrips() {
+        val s = StructureAnalyzer.analyze(render(song, 128.0, 0.37), sr, 128f)!!
+        val back = StructureStore.decode(StructureStore.encode(s))!!
+        assertEquals(s.sections, back.sections)
+        assertEquals(s.beatMs, back.beatMs, 1e-4)
+        assertEquals(s.beatStartMs(100), back.beatStartMs(100))
+        assertEquals(s.count(37), back.count(37))
+        assertNull(StructureStore.decode("v0 1 2 3 4\nCHORUS 0 8"))
+        assertNull(StructureStore.decode(""))
+    }
+
+    @Test
     fun tooShortOrNoBpmGivesNull() {
         assertNull(StructureAnalyzer.analyze(FloatArray(sr * 5), sr, 120f))
         assertNull(StructureAnalyzer.analyze(render(song, 120.0, 0.0), sr, 0f))

@@ -309,9 +309,20 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="@string/structure_analyzing"
+                        android:text="@string/structure_idle"
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp" />
+
+                    <com.google.android.material.progressindicator.LinearProgressIndicator
+                        android:id="@+id/structureProgress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:indeterminate="true"
+                        android:visibility="gone"
+                        app:indicatorColor="@color/accent"
+                        app:trackColor="@color/outline"
+                        app:trackCornerRadius="2dp" />
 
                     <com.example.bpm_player.StructureBarView
                         android:id="@+id/structureBar"
@@ -416,6 +427,38 @@
                             app:iconSize="18dp"
                             app:iconTint="@color/text_secondary" />
                         </LinearLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/structureAnalyze"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:minHeight="48dp"
+                            android:text="@string/btn_analyze"
+                            android:textColor="@color/text_primary"
+                            app:backgroundTint="@color/bg_icon_button" />
+
+                        <!-- Apaga a análise salva da música atual -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/structureDelete"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:minHeight="48dp"
+                            android:text="@string/btn_delete_analysis"
+                            android:textColor="@color/text_primary"
+                            android:visibility="gone"
+                            app:backgroundTint="@color/bg_icon_button"
+                            app:icon="@drawable/ic_delete"
+                            app:iconSize="18dp"
+                            app:iconTint="@color/text_secondary" />
                     </LinearLayout>
                 </LinearLayout>
 

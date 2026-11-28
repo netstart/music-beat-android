@@ -71,7 +71,7 @@ object StructureAnalyzer {
     private const val NOVELTY_WINDOW = 4
 
     /** @return null quando não há batida clara ou a música é curta demais. */
-    fun analyze(samples: FloatArray, sampleRate: Int, bpm: Float): SongStructure? {
+    fun analyze(samples: FloatArray, sampleRate: Int, bpm: Float, trace: ((String) -> Unit)? = null): SongStructure? {
         if (bpm <= 0f) return null
         val factor = (sampleRate.toDouble() / TARGET_SR).roundToInt().coerceAtLeast(1)
         val sr = sampleRate.toDouble() / factor
@@ -84,24 +84,36 @@ object StructureAnalyzer {
         if (f.frames < 64) return null
         val fps = sr / HOP
 
-        // 1. Grade: período e fase que mais somam ataques na música inteira
+        // 1. Grade: período e fase que mais somam ataques na música inteira. O BPM vem de 20 s e pode errar ~1%;
+        //    em 400+ tempos isso escorrega um tempo inteiro, então a busca cobre ±3% (grossa) e depois refina.
+        fun gridScore(period: Double, phase: Double): Double {
+            var score = 0.0
+            var t = phase
+            while (t < f.frames - 1) { score += f.onsetAt(t); t += period }
+            return score / ((f.frames - phase) / period)
+        }
         var bestPeriod = 60.0 * fps / bpm
         var bestPhase = 0.0
         var bestScore = -1.0
-        var cand = bpm - 0.6
-        while (cand <= bpm + 0.6) {
-            val period = 60.0 * fps / cand
-            var phase = 0.0
-            while (phase < period) {
-                var score = 0.0
-                var t = phase
-                while (t < f.frames - 1) { score += f.onsetAt(t); t += period }
-                score /= ((f.frames - phase) / period)
-                if (score > bestScore) { bestScore = score; bestPeriod = period; bestPhase = phase }
-                phase += 0.5
+        fun search(bpmFrom: Double, bpmTo: Double, bpmStep: Double, phaseFrom: (Double) -> Double, phaseTo: (Double) -> Double, phaseStep: Double) {
+            var cand = bpmFrom
+            while (cand <= bpmTo) {
+                val period = 60.0 * fps / cand
+                var phase = phaseFrom(period)
+                while (phase < phaseTo(period)) {
+                    if (phase >= 0) {
+                        val score = gridScore(period, phase)
+                        if (score > bestScore) { bestScore = score; bestPeriod = period; bestPhase = phase }
+                    }
+                    phase += phaseStep
+                }
+                cand += bpmStep
             }
-            cand += 0.02
         }
+        search(bpm * 0.97, bpm * 1.03, 0.05, { 0.0 }, { it }, 1.0)
+        val coarseBpm = 60.0 * fps / bestPeriod
+        val coarsePhase = bestPhase
+        search(coarseBpm - 0.06, coarseBpm + 0.06, 0.005, { coarsePhase - 1.0 }, { coarsePhase + 1.0 }, 0.1)
         val beats = ((f.frames - 1 - bestPhase) / bestPeriod).toInt()
         if (beats < BEATS_PER_PHRASE * 2) return null
         val beatFrame = { b: Int -> bestPhase + b * bestPeriod }
@@ -123,8 +135,25 @@ object StructureAnalyzer {
 
         // 2. O "1": grave a cada 4 tempos; entre 1 e 5, onde a harmonia mais troca
         val r4 = (0 until 4).maxBy { r -> meanAt(low, r, 4) }
+        trace?.invoke("grid bpm=%.3f phaseFrames=%.1f beats=$beats".format(60.0 * fps / bestPeriod, bestPhase))
+        trace?.invoke("low mod4: " + (0 until 4).joinToString { "%.2f".format(meanAt(low, it, 4)) })
+        trace?.invoke("low mod8: " + (0 until 8).joinToString { "%.2f".format(meanAt(low, it, 8)) })
+        // Entre o 1 e o 5: as seções entram no 1. Mede o salto de volume (4 tempos depois / 4 antes) em cada posição;
+        // o grave mais forte no 5 é comum (arranjo) e não serve para isso. Empate: troca de harmonia.
+        val entry = DoubleArray(beats) { b ->
+            if (b < 4 || b + 4 > beats) 0.0 else {
+                val j = ln(((b until b + 4).sumOf { energy[it] } + 1e-9) / ((b - 4 until b).sumOf { energy[it] } + 1e-9))
+                if (j > 0) j * j else 0.0
+            }
+        }
         val change4 = DoubleArray(beats) { b -> novelty(chroma, energy, b, 4) }
-        val downbeat = listOf(r4, r4 + 4).maxBy { r -> meanAt(change4, r, BEATS_PER_MEASURE) }
+        val e0 = meanAt(entry, r4, BEATS_PER_MEASURE)
+        val e4 = meanAt(entry, r4 + 4, BEATS_PER_MEASURE)
+        val downbeat = when {
+            abs(e0 - e4) > 0.1 * maxOf(e0, e4) -> if (e0 >= e4) r4 else r4 + 4
+            else -> listOf(r4, r4 + 4).maxBy { r -> meanAt(change4, r, BEATS_PER_MEASURE) }
+        }
+        trace?.invoke("entry mod8: " + (0 until 8).joinToString { "%.4f".format(meanAt(entry, it, 8)) } + " -> downbeat=$downbeat")
 
         // 3. Frases: das 4 opções de alinhamento, a que concentra mais mudança nas bordas
         val change16 = DoubleArray(beats) { b -> novelty(chroma, energy, b, 16) }

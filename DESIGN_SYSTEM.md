@@ -253,12 +253,15 @@ Cores categóricas para **identificar dados** (uma cor por tipo de seção, como
 
 ### 4.13 Cartão Estrutura (seções, frases e contagem)
 - Mesmo cartão `bg_card`, entre Now Playing e Elementos; título `title` "Estrutura" + status `body` `text_secondary`.
-- A música inteira é analisada **antes** (thread de fundo, depois do BPM); em tempo real só a posição é acompanhada.
+- A análise **nunca começa sozinha**: só pelo botão **Analisar estrutura** (habilitado depois que o BPM é detectado). Ela decodifica a música inteira em thread de fundo e fica **salva no aparelho**; nas próximas vezes abre na hora. Em tempo real só a posição é acompanhada.
+- Durante a análise: `LinearProgressIndicator` indeterminado `accent`. Trocar de música não interrompe; o cartão da outra mostra "Analisando outra música…" com o botão desabilitado.
+- Com a análise pronta: botão **Apagar análise** (`ic_delete` 18dp `text_secondary`), que apaga o arquivo salvo e volta ao botão Analisar.
+- Botões tonais `bg/icon-button`, altura 48dp, raio `radius/pill` (mesma receita do cartão Elementos).
 - **Barra de seções** (`structureBar`, 48dp): blocos proporcionais à duração, cor da paleta 3.1.1, seção atual cheia, demais a 40%; linha de posição `text_primary` 2dp. Toque numa seção pula para o início dela.
 - **Linha de leitura**: nome da seção (`title`, na cor da seção) + "Frase 2 de 4" (`meta`, `tnum`).
 - **Contagem 1–8** (`countView`, 40dp): 8 círculos; o tempo atual em `accent` com o número em `on/accent`, os outros contorno `outline` com número `text_tertiary`. Atualiza ~25×/s enquanto toca.
 - **Ações** (IconButton 48dp, `bg/icon-button`): frase anterior (`ic_skip_previous`), loop da frase (`ic_repeat`, `accent` quando ativo), próxima frase (`ic_skip_next`).
-- Estados: analisando, sem estrutura (sem batida clara), pronta.
+- Estados: aguardando BPM, pronto para analisar, analisando, outra música em análise, sem estrutura (sem batida clara, com "Tentar novamente"), salva.
 
 ### 4.9 Feedback textual
 - Toasts curtos para eventos assíncronos (resultado da detecção de BPM).
@@ -328,6 +331,7 @@ Cores categóricas para **identificar dados** (uma cor por tipo de seção, como
 |---|---|---|
 | 1.0 | 2026-09-01 | Criação do design system a partir da pesquisa de mercado (Spotify, Apple Music, YouTube Music, Poweramp, Retro Music; Material 3/Material You). |
 | 1.1 | 2026-09-03 | Hero card com controles à direita em layout horizontal. Botão "Original" abaixo de − e +. Botões do rodapé agora só ícone (IconButton.Filled, sem texto). Botão "Tocar todas em sequência" adicionado com exclusão mútua com "Repetir". Lista de músicas do dispositivo com RecyclerView funcional, double-tap para tocar, ícone play/pause por item. Tempo atual/total em tempo real. |
+| 1.6 | 2026-11-28 | Estrutura só pelo botão Analisar, salva no aparelho por música; botão Apagar análise. |
 | 1.5 | 2026-11-28 | Paleta de dados (3.1.1) para seções da música; acento único passa a valer para ação. Cartão Estrutura (4.13): seções, frases, contagem 1–8 e loop de frase. Cartão herói 30% menor (`display/hero` 45–53sp, altura mínima −30%); botões seguem com 48dp de toque. |
 | 1.4 | 2026-11-27 | Lista de músicas em painel inferior arrastável (sai o menu hambúrguer); um toque toca; banner AdMob como último item da área que rola. |
 | 1.3 | 2026-11-27 | Cartão Elementos (4.11) com "Separar" e "Limpar elementos"; tela de Configurações (4.12) para a pasta dos elementos separados. |

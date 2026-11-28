@@ -74,8 +74,8 @@ Interface:
 Novo `StructureAnalyzer.analyze(pcm, sampleRate, bpm): SongStructure?`:
 
 1. **Reduzir** o PCM para ~11 kHz (média de blocos). Quadros de FFT 1024, hop 256 (~23 ms). Por quadro: fluxo espectral (onsets), fluxo só do grave (< 200 Hz), chroma de 12 notas e RMS.
-2. **Grade de tempos:** parte do BPM detectado e testa ±0,6 BPM em passos de 0,02 e todas as fases. Escolhe o par que soma mais onsets sobre a grade na música inteira. Saída: `firstBeatMs` e `beatMs`.
-3. **O "1" da contagem de 8:** entre os 8 deslocamentos possíveis, o que tem mais grave nos tempos `≡ r (mod 4)`. Isso dá o 1 do compasso. Para desempatar entre 1 e 5, usa a mudança de harmonia (chroma), que cai mais no 1.
+2. **Grade de tempos:** parte do BPM detectado (que só olha 20 s e pode errar ~1%) e testa ±3% em passos de 0,05, depois refina em passos de 0,005, com todas as fases. Escolhe o par que soma mais onsets sobre a grade na música inteira. Saída: `firstBeatMs` e `beatMs`. *(Era ±0,6 BPM: na White roses o BPM de 20 s deu 150,9, o real é 149,6, e a grade escorregava um tempo inteiro ao longo da música, levando o "1" junto.)*
+3. **O "1" da contagem de 8:** entre os 8 deslocamentos possíveis, o que tem mais grave nos tempos `≡ r (mod 4)`. Isso dá o 1 do compasso. Entre o 1 e o 5, ganha onde as seções **entram** (salto de volume dos 4 tempos seguintes contra os 4 anteriores); só no empate vale a troca de harmonia. O grave mais forte não serve para isso: muitos arranjos acentuam o 5.
 4. **Frases:** blocos de 32 tempos (4 × 8) alinhados no "1". Entre as 4 opções de alinhamento, fica a que concentra mais mudança de chroma e energia nas bordas.
 5. **Seções:** um vetor (chroma médio + energia) por bloco de 8 tempos. A novidade compara os 4 blocos antes e depois de cada ponto (distância cosseno). Corta nos picos acima de média + 0,5·desvio, com no mínimo uma frase entre cortes e preferência pela borda de frase.
 6. **Rótulos:** agrupa seções parecidas (cosseno do chroma > 0,9 = mesma letra A/B/C). Depois aplica regras simples:

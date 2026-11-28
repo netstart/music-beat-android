@@ -86,8 +86,11 @@ class MainActivity : AppCompatActivity() {
     private val stemRows = arrayOfNulls<ItemStemBinding>(StemMixer.STEMS)
 
     // Estrutura (seções, frases, contagem 1–8): calculada offline por música; em tempo real só a posição é lida.
+    // Só pelo botão Analisar; o resultado fica salvo no aparelho (StructureStore) e abre na hora nas próximas vezes.
     private var structure: StructureAnalyzer.SongStructure? = null
-    private val structureCache = java.util.concurrent.ConcurrentHashMap<Uri, StructureAnalyzer.SongStructure>()
+    private var structureBpm = 0f // BPM confiável da música atual; 0 = ainda não detectado (sem ele não dá para analisar)
+    private var structureFailed = false
+    private var structureBusyUri: Uri? = null // uma análise por vez; continua mesmo se a música mudar
     private var loopPhrase: IntRange? = null
 
     private val bpmHoldHandler = Handler(Looper.getMainLooper())
@@ -664,7 +667,15 @@ class MainActivity : AppCompatActivity() {
         if (!sameSong) stemControls.indices.forEach { stemControls[it] = StemControl() }
 
         startPlayback(uri)
-        showStructure(null, analyzing = true)
+        structureBpm = 0f
+        structureFailed = false
+        showStructure(null)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val saved = StructureStore.load(applicationContext, uri)
+            withContext(Dispatchers.Main) {
+                if (saved != null && !isDestroyed && uri == playingSongUri) showStructure(saved)
+            }
+        }
         stemControls.indices.forEach { renderStemRow(it) }
         renderElements()
 
@@ -679,25 +690,19 @@ class MainActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 if (isDestroyed || isFinishing || uri != playingSongUri) return@withContext
                 if (result != null && result.confidence > 0f) {
+                    structureBpm = result.bpm
+                    renderStructureCard()
                     detectedBpm = result.bpm
                     binding.bpmSlider.value = (result.bpm + 0.5f).toInt().coerceIn(40, 200).toFloat()
                     applyBpm(result.bpm)
                     binding.trackStatus.text = getString(R.string.status_bpm_detected, result.bpm, binding.bpmSlider.value)
                 } else {
+                    structureFailed = true // sem batida clara não há grade; a análise salva, se houver, continua valendo
+                    renderStructureCard()
                     detectedBpm = if (binding.bpmSlider.value > 0f) binding.bpmSlider.value else 100f
                     applyBpm(detectedBpm)
                     binding.trackStatus.text = getString(R.string.toast_no_bpm)
                 }
-            }
-
-            // Estrutura: precisa da música inteira (o BPM só olha 20 s); sem batida clara, não há grade
-            pcm = null
-            val found = if (result == null || result.confidence <= 0f) null else structureCache[uri] ?: runCatching {
-                AudioDecoder.decode(applicationContext, uri, 0L)?.let { StructureAnalyzer.analyze(it.samples, it.sampleRate, result.bpm) }
-            }.onFailure { Log.e("BPM_STRUCT", "análise falhou: ${it.javaClass.simpleName}: ${it.message}") }.getOrNull()
-            found?.let { structureCache[uri] = it }
-            withContext(Dispatchers.Main) {
-                if (!isDestroyed && !isFinishing && uri == playingSongUri) showStructure(found, analyzing = false)
             }
         }
 
@@ -838,24 +843,75 @@ class MainActivity : AppCompatActivity() {
             loopPhrase = if (loopPhrase != null || s == null || player == null) null else s.phraseAt(s.beatAt(player.currentPosition))
             renderPhraseLoop()
         }
+        binding.structureAnalyze.setOnClickListener { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            analyzeStructure()
+        }
+        binding.structureDelete.setOnClickListener { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            val uri = playingSongUri ?: return@setOnClickListener
+            lifecycleScope.launch(Dispatchers.IO) { StructureStore.delete(applicationContext, uri) }
+            structureFailed = false
+            showStructure(null)
+            Snackbar.make(binding.root, R.string.structure_deleted, Snackbar.LENGTH_SHORT).show()
+        }
     }
 
-    private fun showStructure(s: StructureAnalyzer.SongStructure?, analyzing: Boolean) {
+    /** Decodifica a música inteira, analisa e salva no aparelho. Termina mesmo se a música mudar no meio. */
+    private fun analyzeStructure() {
+        val uri = playingSongUri ?: return
+        val bpm = structureBpm
+        if (bpm <= 0f || structureBusyUri != null) return
+        structureBusyUri = uri
+        renderStructureCard()
+        lifecycleScope.launch(Dispatchers.IO) {
+            val found = runCatching {
+                AudioDecoder.decode(applicationContext, uri, 0L)?.let { StructureAnalyzer.analyze(it.samples, it.sampleRate, bpm) }
+            }.onFailure { Log.e("BPM_STRUCT", "análise falhou: ${it.javaClass.simpleName}: ${it.message}") }.getOrNull()
+            found?.let { runCatching { StructureStore.save(applicationContext, uri, it) } }
+            withContext(Dispatchers.Main) {
+                if (isDestroyed) return@withContext
+                structureBusyUri = null
+                if (uri == playingSongUri) {
+                    structureFailed = found == null
+                    showStructure(found)
+                } else renderStructureCard()
+            }
+        }
+    }
+
+    private fun showStructure(s: StructureAnalyzer.SongStructure?) {
         structure = s
         loopPhrase = null
         renderPhraseLoop()
-        binding.structureCard.visibility = View.VISIBLE
+        binding.structureBar.structure = s
+        renderStructureCard()
+        handler.removeCallbacks(structureTicker)
+        if (exoPlayer?.isPlaying == true) handler.post(structureTicker) else updateStructureUi()
+    }
+
+    /** Estados do cartão (DESIGN_SYSTEM 4.13): aguardando BPM, pronto para analisar, analisando, outra em análise, sem estrutura, salva. */
+    private fun renderStructureCard() {
+        val s = structure
+        val uri = playingSongUri
+        val busy = structureBusyUri
+        binding.structureCard.visibility = if (uri != null) View.VISIBLE else View.GONE
         binding.structureStatus.setText(when {
-            analyzing -> R.string.structure_analyzing
-            s == null -> R.string.structure_none
-            else -> R.string.structure_hint
+            s != null -> R.string.structure_hint
+            busy != null && busy == uri -> R.string.structure_analyzing
+            busy != null -> R.string.structure_busy_other
+            structureFailed -> R.string.structure_none
+            structureBpm <= 0f -> R.string.structure_wait_bpm
+            else -> R.string.structure_idle
         })
+        binding.structureProgress.visibility = if (busy != null && busy == uri) View.VISIBLE else View.GONE
         val ready = if (s != null) View.VISIBLE else View.GONE
         binding.structureBar.visibility = ready
         binding.structureLive.visibility = ready
-        binding.structureBar.structure = s
-        handler.removeCallbacks(structureTicker)
-        if (exoPlayer?.isPlaying == true) handler.post(structureTicker) else updateStructureUi()
+        binding.structureDelete.visibility = ready
+        binding.structureAnalyze.visibility = if (s == null) View.VISIBLE else View.GONE
+        binding.structureAnalyze.isEnabled = busy == null && structureBpm > 0f
+        binding.structureAnalyze.setText(if (structureFailed) R.string.btn_retry else R.string.btn_analyze)
     }
 
     /** Barra, seção, frase e contagem na posição atual; com o loop de frase ligado, volta ao início ao passar do fim. */
