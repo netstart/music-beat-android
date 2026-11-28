@@ -91,6 +91,7 @@ class MainActivity : AppCompatActivity() {
     private var structureBpm = 0f // BPM confiável da música atual; 0 = ainda não detectado (sem ele não dá para analisar)
     private var structureFailed = false
     private var structureBusyUri: Uri? = null // uma análise por vez; continua mesmo se a música mudar
+    private var autoStructure: StructureAnalyzer.SongStructure? = null // a detectada; a manual, se houver, vale no lugar dela
     private var loopPhrase: IntRange? = null
 
     private val bpmHoldHandler = Handler(Looper.getMainLooper())
@@ -669,11 +670,16 @@ class MainActivity : AppCompatActivity() {
         startPlayback(uri)
         structureBpm = 0f
         structureFailed = false
+        autoStructure = null
         showStructure(null)
         lifecycleScope.launch(Dispatchers.IO) {
-            val saved = StructureStore.load(applicationContext, uri)
+            // A estrutura manual, se existir, vale no lugar da detectada
+            val manual = ManualStore.load(applicationContext, uri)?.let { runCatching { it.toSongStructure() }.getOrNull() }
+            val auto = StructureStore.load(applicationContext, uri)
             withContext(Dispatchers.Main) {
-                if (saved != null && !isDestroyed && uri == playingSongUri) showStructure(saved)
+                if (isDestroyed || uri != playingSongUri) return@withContext
+                autoStructure = auto
+                (manual ?: auto)?.let { showStructure(it) }
             }
         }
         stemControls.indices.forEach { renderStemRow(it) }
@@ -842,9 +848,14 @@ class MainActivity : AppCompatActivity() {
             val player = exoPlayer ?: return@setOnClickListener
             val uri = playingSongUri ?: return@setOnClickListener
             v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            if (s.manual) {
+                Snackbar.make(binding.root, R.string.structure_manual_tap, Snackbar.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             val beat = Math.round((player.currentPosition - s.firstBeatMs) / s.beatMs).toInt().coerceIn(0, s.beatCount - 1)
             val adjusted = s.withOneAt(beat)
             if (adjusted === s) return@setOnClickListener
+            autoStructure = adjusted
             structure = adjusted
             binding.structureBar.structure = adjusted
             loopPhrase = null
@@ -869,8 +880,46 @@ class MainActivity : AppCompatActivity() {
             val uri = playingSongUri ?: return@setOnClickListener
             lifecycleScope.launch(Dispatchers.IO) { StructureStore.delete(applicationContext, uri) }
             structureFailed = false
+            autoStructure = null
             showStructure(null)
             Snackbar.make(binding.root, R.string.structure_deleted, Snackbar.LENGTH_SHORT).show()
+        }
+        binding.structureManual.setOnClickListener { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            openManualSheet()
+        }
+    }
+
+    /** Painel "Estrutura manual": carrega a salva (ou um rascunho com o título e o BPM detectado) e abre o formulário. */
+    private fun openManualSheet() {
+        val uri = playingSongUri ?: return
+        lifecycleScope.launch {
+            val existing = withContext(Dispatchers.IO) { ManualStore.load(applicationContext, uri) }
+            val bpm = if (structureBpm > 0f) structureBpm else detectedBpm
+            val initial = existing ?: ManualStructure(
+                ManualSong(binding.trackTitle.text.toString(), currentArtist.orEmpty(), "", Math.round(bpm * 10) / 10.0, ""),
+                trim = autoStructure?.let { Math.round(it.firstBeatMs) / 1000.0 } ?: 0.0,
+                lag = 0.0,
+                sections = listOf(ManualSection("Intro", "", "4")),
+            )
+            ManualSheet(
+                this@MainActivity, initial, existing != null, autoStructure,
+                positionMs = { exoPlayer?.currentPosition ?: 0L },
+                onSave = { m ->
+                    lifecycleScope.launch {
+                        withContext(Dispatchers.IO) { ManualStore.save(applicationContext, uri, m) }
+                        if (uri == playingSongUri) showStructure(m.toSongStructure())
+                        Snackbar.make(binding.root, R.string.manual_saved, Snackbar.LENGTH_SHORT).show()
+                    }
+                },
+                onDelete = {
+                    lifecycleScope.launch {
+                        withContext(Dispatchers.IO) { ManualStore.delete(applicationContext, uri) }
+                        if (uri == playingSongUri) showStructure(autoStructure)
+                        Snackbar.make(binding.root, R.string.manual_deleted, Snackbar.LENGTH_SHORT).show()
+                    }
+                },
+            ).show()
         }
     }
 
@@ -890,8 +939,9 @@ class MainActivity : AppCompatActivity() {
                 if (isDestroyed) return@withContext
                 structureBusyUri = null
                 if (uri == playingSongUri) {
-                    structureFailed = found == null
-                    showStructure(found)
+                    autoStructure = found
+                    if (structure?.manual == true) renderStructureCard() // a manual continua valendo
+                    else { structureFailed = found == null; showStructure(found) }
                 } else renderStructureCard()
             }
         }
@@ -914,6 +964,7 @@ class MainActivity : AppCompatActivity() {
         val busy = structureBusyUri
         binding.structureCard.visibility = if (uri != null) View.VISIBLE else View.GONE
         binding.structureStatus.setText(when {
+            s?.manual == true -> R.string.structure_manual
             s != null -> R.string.structure_hint
             busy != null && busy == uri -> R.string.structure_analyzing
             busy != null -> R.string.structure_busy_other
@@ -925,8 +976,9 @@ class MainActivity : AppCompatActivity() {
         val ready = if (s != null) View.VISIBLE else View.GONE
         binding.structureBar.visibility = ready
         binding.structureLive.visibility = ready
-        binding.structureDelete.visibility = ready
-        binding.structureAnalyze.visibility = if (s == null) View.VISIBLE else View.GONE
+        binding.structureDelete.visibility = if (s != null && !s.manual) View.VISIBLE else View.GONE
+        binding.structureAnalyze.visibility = if (autoStructure == null && (s == null || s.manual)) View.VISIBLE else View.GONE
+        binding.structureManual.setText(if (s?.manual == true) R.string.manual_edit else R.string.manual_open)
         binding.structureAnalyze.isEnabled = busy == null && structureBpm > 0f
         binding.structureAnalyze.setText(if (structureFailed) R.string.btn_retry else R.string.btn_analyze)
     }
@@ -946,10 +998,13 @@ class MainActivity : AppCompatActivity() {
         binding.structureBar.positionMs = pos
         val beat = s.beatAt(pos)
         val section = s.sections[s.sectionIndexAt(beat)]
-        binding.sectionName.setText(section.kind.labelRes())
+        binding.sectionName.text = section.title ?: getString(section.kind.labelRes())
         binding.sectionName.setTextColor(ContextCompat.getColor(this, section.kind.colorRes()))
         val starts = s.phraseStarts(section)
-        binding.phraseLabel.text = getString(R.string.structure_phrase, starts.indexOfLast { beat >= it } + 1, starts.size)
+        val phraseNo = starts.indexOfLast { beat >= it } + 1
+        val rhythm = s.labelAt(beat)?.takeIf { it != ManualStructure.NO_LABEL }
+        binding.phraseLabel.text = if (rhythm != null) getString(R.string.structure_phrase_label, phraseNo, starts.size, rhythm)
+            else getString(R.string.structure_phrase, phraseNo, starts.size)
         binding.countView.count = if (pos < s.firstBeatMs) 0 else s.count(beat)
     }
 

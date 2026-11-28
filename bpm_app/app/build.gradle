@@ -118,6 +118,7 @@ dependencies {
     debugImplementation 'com.google.ai.edge.litert:litert-gpu-api:1.4.2'
 
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303' // org.json real nos testes de JVM (o do android.jar é só stub)
 
     // ── Testes instrumentados (UI) ──
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

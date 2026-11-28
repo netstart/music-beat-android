@@ -29,4 +29,37 @@
         <item name="tickColorActive">@color/on_accent</item>
         <item name="tickColorInactive">@color/accent</item>
     </style>
+
+    <!-- Campo do formulário de estrutura manual (DESIGN_SYSTEM 4.14) -->
+    <style name="ManualField" parent="Widget.Material3.TextInputLayout.OutlinedBox.Dense">
+        <item name="boxStrokeColor">@color/accent</item>
+        <item name="hintTextColor">@color/accent</item>
+        <item name="android:textColorHint">@color/text_secondary</item>
+        <item name="boxCornerRadiusTopStart">12dp</item>
+        <item name="boxCornerRadiusTopEnd">12dp</item>
+        <item name="boxCornerRadiusBottomStart">12dp</item>
+        <item name="boxCornerRadiusBottomEnd">12dp</item>
+    </style>
+
+    <!-- Painel deslizante (BottomSheetDialog) com fundo bg_sheet -->
+    <style name="ManualSheetDialog" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/ManualSheetStyle</item>
+        <item name="android:navigationBarColor">@color/bg_card</item>
+    </style>
+    <style name="ManualSheetStyle" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">@color/bg_card</item>
+    </style>
+
+    <!-- Legenda de bloco no formulário manual: caption caps -->
+    <style name="ManualCaption">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">20dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">11sp</item>
+    </style>
 </resources>

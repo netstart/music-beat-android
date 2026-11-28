@@ -91,6 +91,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 | `text/secondary` | `#93A4B3` | Subtítulos, leitura de estado, artista |
 | `text/tertiary` | `#5C6B78` | Metadados, labels min/max, duração |
 | `outline` | `#263340` | Trilhas inativas de slider, divisores |
+| `error` | `colorError` do tema M3 escuro | **Só** mensagem de erro de campo de formulário (`TextInputLayout.error`); nunca em botão ou estado |
 
 **Regras de contraste:** `text/primary` sobre `bg/base` ≥ 15:1; `text/secondary` ≥ 7:1; `accent` é usado em elementos gráficos e números grandes (≥ 3:1 garantido). Nunca use `text/tertiary` em textos abaixo de 12sp.
 
@@ -264,6 +265,15 @@ Cores categóricas para **identificar dados** (uma cor por tipo de seção, como
 - **Ações** (IconButton 48dp, `bg/icon-button`): frase anterior (`ic_skip_previous`), loop da frase (`ic_repeat`, `accent` quando ativo), próxima frase (`ic_skip_next`).
 - Estados: aguardando BPM, pronto para analisar, analisando, outra música em análise, sem estrutura (sem batida clara, com "Tentar novamente"), salva.
 
+### 4.14 Painel "Estrutura manual" (formulário no formato do emusicality)
+- Aberto pelo botão **Estrutura manual** do cartão Estrutura (vira **Editar estrutura manual** quando existe). É um `BottomSheetDialog` (`ManualSheetDialog`) que abre **expandido**, com o mesmo fundo `bg_sheet` (raio 24dp em cima) e a alça 32×4dp `text_tertiary` do painel de músicas; arrastar para baixo fecha.
+- Conteúdo em `NestedScrollView`, padding 16dp, blocos com legenda `caption` caps (`ManualCaption`): **Música** (título, artista, gênero), **Tempo** (BPM, 1º tempo em segundos com o botão tonal **Agora** que copia a posição atual, atraso extra), **Seções**.
+- Campos: `TextInputLayout` contornado denso (`ManualField`), contorno e dica em foco `accent`, raio 12dp; números com `tnum`.
+- Cada seção é uma superfície `bg/icon-button` raio 16dp (`bg_manual_section`) com "SEÇÃO N" (`caption`), **subir** (`ic_arrow_up`) e **remover** (`ic_delete`) 48dp, e os campos Nome, Ritmo (opcional) e Frases (sintaxe do site; ajuda em `body` 12sp `text_secondary` acima da lista).
+- Ações, de cima para baixo: **Salvar estrutura** (botão cheio `accent` / `on/accent`, a única ação primária do painel), **Preencher com a análise automática**, **Enviar para o GitHub**, **Apagar estrutura manual** (`ic_delete`) — tonais `bg/icon-button`, 48dp, largura total.
+- Validação inline (`error` 3.1): título e BPM (30–300) obrigatórios; frases inválidas marcam o campo da seção.
+- Com estrutura manual, o cartão Estrutura mostra "Estrutura manual (sua)", usa o nome dado a cada seção (cor pelo tipo, paleta 3.1.1), mostra o ritmo (`Frase 2 de 4 · Majao`) e o toque na contagem só orienta a ajustar o 1º tempo no formulário.
+
 ### 4.9 Feedback textual
 - Toasts curtos para eventos assíncronos (resultado da detecção de BPM).
 - Nenhum diálogo/modal nesta fase — estados são comunicados inline (linha de status); confirmações curtas em Snackbar.
@@ -332,6 +342,7 @@ Cores categóricas para **identificar dados** (uma cor por tipo de seção, como
 |---|---|---|
 | 1.0 | 2026-09-01 | Criação do design system a partir da pesquisa de mercado (Spotify, Apple Music, YouTube Music, Poweramp, Retro Music; Material 3/Material You). |
 | 1.1 | 2026-09-03 | Hero card com controles à direita em layout horizontal. Botão "Original" abaixo de − e +. Botões do rodapé agora só ícone (IconButton.Filled, sem texto). Botão "Tocar todas em sequência" adicionado com exclusão mútua com "Repetir". Lista de músicas do dispositivo com RecyclerView funcional, double-tap para tocar, ícone play/pause por item. Tempo atual/total em tempo real. |
+| 1.9 | 2026-11-28 | Painel "Estrutura manual" (4.14); token `error` só para validação de campo. |
 | 1.8 | 2026-11-28 | Barras mais finas (BPM 8dp, progresso 6dp, estrutura 12dp); herói mais 20% menor (36–42sp). |
 | 1.7 | 2026-11-28 | Contagem tocável ("o 1 é aqui"), 48dp; o 1 acompanha pontes com compasso curto/longo. |
 | 1.6 | 2026-11-28 | Estrutura só pelo botão Analisar, salva no aparelho por música; botão Apagar análise. |

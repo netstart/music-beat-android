@@ -25,8 +25,8 @@ object StructureAnalyzer {
 
     enum class Kind { INTRO, VERSE, PRE_CHORUS, CHORUS, BRIDGE, OUTRO }
 
-    /** Seção em índices de tempo: [startBeat, endBeat). */
-    data class Section(val kind: Kind, val startBeat: Int, val endBeat: Int)
+    /** Seção em índices de tempo: [startBeat, endBeat). [title]: nome dado à mão (estrutura manual); null = o do [kind]. */
+    data class Section(val kind: Kind, val startBeat: Int, val endBeat: Int, val title: String? = null)
 
     /** A partir de [beat], a contagem anda [shift] tempos (ponte com compasso curto/longo, ou ajuste manual). */
     data class Shift(val beat: Int, val shift: Int)
@@ -41,6 +41,12 @@ object StructureAnalyzer {
         val sections: List<Section>,
         /** Ordenados por tempo. Vazio = o 1 nunca muda de lugar. */
         val shifts: List<Shift> = emptyList(),
+        /** Inícios de frase exatos (estrutura manual); null = grade de 32 tempos a partir de [phraseBeat]. */
+        val phraseStartList: List<Int>? = null,
+        /** Ritmo da dança por compasso (Derecho, Majao…), a partir do tempo; só na estrutura manual. */
+        val labels: List<Pair<Int, String>> = emptyList(),
+        /** Feita à mão no formulário (vale no lugar da detectada). */
+        val manual: Boolean = false,
     ) {
         val beatCount: Int get() = sections.last().endBeat
 
@@ -50,7 +56,9 @@ object StructureAnalyzer {
         fun beatAt(ms: Long): Int = floor((ms - firstBeatMs) / beatMs + 0.005).toInt().coerceIn(0, beatCount - 1)
         fun beatStartMs(beat: Int): Long = (firstBeatMs + beat * beatMs).roundToLong().coerceAtLeast(0L)
         fun count(beat: Int): Int = Math.floorMod(beat - downbeat - shiftAt(beat), BEATS_PER_MEASURE) + 1
-        fun isPhraseStart(beat: Int): Boolean = Math.floorMod(beat - phraseBeat - shiftAt(beat), BEATS_PER_PHRASE) == 0
+        fun isPhraseStart(beat: Int): Boolean = phraseStartList?.contains(beat)
+            ?: (Math.floorMod(beat - phraseBeat - shiftAt(beat), BEATS_PER_PHRASE) == 0)
+        fun labelAt(beat: Int): String? = labels.lastOrNull { it.first <= beat }?.second
 
         /**
          * "O 1 é aqui": a partir de [beat] a contagem recomeça nele, no mesmo BPM. Os pulos seguintes (pontes)
@@ -62,7 +70,8 @@ object StructureAnalyzer {
             if (d == 0) return this
             val kept = shifts.filter { it.beat < beat }
             val moved = shifts.filter { it.beat > beat }.map { it.copy(shift = it.shift + d) }
-            return SongStructure(beatMs, firstBeatMs, downbeat, phraseBeat, sections, kept + Shift(beat, shiftAt(beat) + d) + moved)
+            return SongStructure(beatMs, firstBeatMs, downbeat, phraseBeat, sections, kept + Shift(beat, shiftAt(beat) + d) + moved,
+                phraseStartList, labels, manual)
         }
         fun sectionIndexAt(beat: Int): Int = sections.indexOfLast { beat >= it.startBeat }.coerceAtLeast(0)
 

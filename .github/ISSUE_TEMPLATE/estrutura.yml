@@ -1,0 +1,31 @@
+name: Estrutura de música
+description: Estrutura feita à mão no BeatTrack (formato do emusicality), para guardar no catálogo do repositório.
+title: "Estrutura: "
+labels: ["estrutura"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Preenchido pelo app (**Estrutura manual → Enviar para o GitHub**). O formato está em `docs/EMUSICALITY_FORMATO.md`.
+        Depois de revisada, a issue recebe o rótulo `estrutura-aprovada` e um pull request adiciona os arquivos em `structures/`.
+  - type: textarea
+    id: musica
+    attributes:
+      label: Música (songs.json)
+      description: 'Entrada do catálogo: { "<id>": { "title", "artist", "genre", "bpm", "dateAdded" } }'
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: breakdown
+    attributes:
+      label: breakdown.json
+      description: trim, lag, beatsPerMeasure, tracks e sections (frases).
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: notas
+    attributes:
+      label: Observações
+      description: Opcional. Ex.: versão da música, onde está a ponte.

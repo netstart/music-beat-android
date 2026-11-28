@@ -7,6 +7,7 @@ name: Android
 on:
   push:
     branches: [main]
+    paths-ignore: ['structures/**'] # catálogo de estruturas não gera versão do app
   workflow_dispatch:
     inputs:
       track:

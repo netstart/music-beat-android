@@ -116,4 +116,41 @@
     <string name="cd_phrase_next">Próxima frase</string>
     <string name="cd_phrase_loop">Repetir a frase atual</string>
     <string name="cd_phrase_loop_off">Parar de repetir a frase</string>
+    <!-- Estrutura manual (formato do emusicality) -->
+    <string name="manual_title">Estrutura manual</string>
+    <string name="manual_hint">Descreva a música como no emusicality. Salva, ela vale no lugar da detectada, fica com backup na sua conta Google e pode ser enviada para o GitHub.</string>
+    <string name="manual_caption_song">Música</string>
+    <string name="manual_caption_time">Tempo</string>
+    <string name="manual_caption_sections">Seções</string>
+    <string name="manual_song_title">Título</string>
+    <string name="manual_song_artist">Artista</string>
+    <string name="manual_song_genre">Gênero</string>
+    <string name="manual_bpm">BPM</string>
+    <string name="manual_trim">1º tempo (s)</string>
+    <string name="manual_trim_now">Agora</string>
+    <string name="manual_lag">Atraso extra (s)</string>
+    <string name="manual_phrases_help">Frases, como no emusicality: 4 = 4 compassos de 8 tempos · [8, 8, 8, 8, 4] = um compasso por número (4 = meio compasso, o 1 muda de lugar) · [\"Majao\", 8, \"Derecho\", 8] = o texto troca o ritmo · {\"beats\": 4, \"offset\": 4} = compasso que conta 5 a 8. Separe as frases por vírgula.</string>
+    <string name="manual_section_number">Seção %1$d</string>
+    <string name="manual_section_title">Nome (Intro, Verse…)</string>
+    <string name="manual_section_structure">Ritmo (opcional)</string>
+    <string name="manual_section_phrases">Frases</string>
+    <string name="manual_add_section">Adicionar seção</string>
+    <string name="manual_save">Salvar estrutura</string>
+    <string name="manual_fill">Preencher com a análise automática</string>
+    <string name="manual_github">Enviar para o GitHub</string>
+    <string name="manual_delete">Apagar estrutura manual</string>
+    <string name="manual_saved">Estrutura manual salva: ela vale no lugar da detectada</string>
+    <string name="manual_deleted">Estrutura manual apagada</string>
+    <string name="manual_error_required">Obrigatório</string>
+    <string name="manual_error_bpm">BPM entre 30 e 300</string>
+    <string name="manual_error_phrases">Frases inválidas: veja os exemplos acima</string>
+    <string name="manual_error_sections">Adicione pelo menos uma seção</string>
+    <string name="manual_no_analysis">Analise a estrutura primeiro para preencher</string>
+    <string name="manual_open">Estrutura manual</string>
+    <string name="manual_edit">Editar estrutura manual</string>
+    <string name="structure_manual">Estrutura manual (sua): vale no lugar da detectada</string>
+    <string name="structure_manual_tap">Na estrutura manual, ajuste o 1º tempo no formulário</string>
+    <string name="structure_phrase_label">Frase %1$d de %2$d · %3$s</string>
+    <string name="cd_manual_section_remove">Remover seção</string>
+    <string name="cd_manual_section_up">Subir seção</string>
 </resources>

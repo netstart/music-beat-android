@@ -463,6 +463,21 @@
                             app:iconSize="18dp"
                             app:iconTint="@color/text_secondary" />
                     </LinearLayout>
+
+                    <!-- Abre o painel "Estrutura manual" (DESIGN_SYSTEM 4.14) -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/structureManual"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:minHeight="48dp"
+                        android:text="@string/manual_open"
+                        android:textColor="@color/text_primary"
+                        app:backgroundTint="@color/bg_icon_button"
+                        app:icon="@drawable/ic_edit"
+                        app:iconSize="18dp"
+                        app:iconTint="@color/text_secondary" />
                 </LinearLayout>
 
                 <!-- Card Elementos: separação de stems on-device + mesa (solo/mudo/volume) -->

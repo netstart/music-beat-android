@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup automático na conta Google (Android 11 e anteriores). Só o que é pequeno e do usuário:
+     estruturas feitas à mão e a ordem da lista. O modelo de IA (290 MB) e os elementos ficariam acima
+     do limite de 25 MB e o Google não salvaria nada. -->
+<full-backup-content>
+    <include domain="file" path="manual/" />
+    <include domain="sharedpref" path="song_sort.xml" />
+</full-backup-content>

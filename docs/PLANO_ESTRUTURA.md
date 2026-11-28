@@ -32,7 +32,7 @@ Regras do parser (lidas do `main.js`):
 
 - **Seção** → lista de **frases** → cada frase é uma lista de **medidas** (compassos de 8 tempos).
 - Frase como número `N` = N medidas de `beatsPerMeasure` tempos.
-- Frase como array = medidas explícitas: número = tempos daquela medida (`4` = meia medida, marcada como "warning" na tela); string troca o rótulo de `structure` (ex.: `"Acapella"`) para as medidas seguintes; objeto `{beats, structure, offset}` também vale.
+- Frase como array = medidas explícitas, **cada item é uma medida**: número = tempos daquela medida (`4` = meia medida, marcada como "warning" na tela); texto = medida de 8 tempos que também troca o `structure` (ex.: `"Acapella"`) dali em diante; objeto `{beats, structure, offset}` = medida sob medida. Detalhes completos em [EMUSICALITY_FORMATO.md](EMUSICALITY_FORMATO.md).
 - Tudo vira um índice de tempo contínuo. Tempo → segundos: `(beat - 1) * 60 / bpm + lag`. O `trim` desloca o início do áudio. **O BPM é fixo na música inteira.**
 - A cada tick ele acha a seção, a frase, a medida e o tempo atuais pelo índice.
 
