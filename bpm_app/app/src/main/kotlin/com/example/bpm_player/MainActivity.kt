@@ -836,6 +836,23 @@ class MainActivity : AppCompatActivity() {
             v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             jumpPhrase(+1)
         }
+        // "O 1 é aqui": toque na contagem no tempo do 1; vale daqui em diante, no BPM detectado, e fica salvo
+        binding.countView.setOnClickListener { v ->
+            val s = structure ?: return@setOnClickListener
+            val player = exoPlayer ?: return@setOnClickListener
+            val uri = playingSongUri ?: return@setOnClickListener
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            val beat = Math.round((player.currentPosition - s.firstBeatMs) / s.beatMs).toInt().coerceIn(0, s.beatCount - 1)
+            val adjusted = s.withOneAt(beat)
+            if (adjusted === s) return@setOnClickListener
+            structure = adjusted
+            binding.structureBar.structure = adjusted
+            loopPhrase = null
+            renderPhraseLoop()
+            updateStructureUi()
+            lifecycleScope.launch(Dispatchers.IO) { runCatching { StructureStore.save(applicationContext, uri, adjusted) } }
+            Snackbar.make(binding.root, R.string.structure_one_set, Snackbar.LENGTH_SHORT).show()
+        }
         binding.phraseLoopButton.setOnClickListener { v ->
             v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             val s = structure

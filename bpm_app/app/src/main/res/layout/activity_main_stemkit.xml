@@ -55,7 +55,8 @@
                     android:gravity="center_horizontal"
                     android:minHeight="@dimen/hero_min_height"
                     android:orientation="vertical"
-                    android:padding="@dimen/card_padding">
+                    android:paddingHorizontal="@dimen/card_padding"
+                    android:paddingVertical="4dp">
 
                     <TextView
                         android:id="@+id/bpmLabel"
@@ -161,7 +162,8 @@
                     android:value="120"
                     android:valueFrom="40"
                     android:valueTo="200"
-                    app:trackHeight="16dp" />
+                    app:thumbHeight="28dp"
+                    app:trackHeight="8dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -251,8 +253,8 @@
                         android:value="0"
                         android:valueFrom="0"
                         android:valueTo="1000"
-                        app:thumbHeight="32dp"
-                        app:trackHeight="10dp" />
+                        app:thumbHeight="24dp"
+                        app:trackHeight="6dp" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -367,7 +369,8 @@
                         <com.example.bpm_player.CountView
                             android:id="@+id/countView"
                             android:layout_width="match_parent"
-                            android:layout_height="40dp"
+                            android:layout_height="48dp"
+                            android:background="?attr/selectableItemBackground"
                             android:layout_marginTop="8dp" />
 
                         <LinearLayout

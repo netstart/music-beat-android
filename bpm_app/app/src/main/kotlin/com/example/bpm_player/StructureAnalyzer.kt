@@ -14,9 +14,11 @@ import kotlin.math.sqrt
  * Estrutura musical da música inteira, calculada offline (ver docs/PLANO_ESTRUTURA.md).
  *
  * 1. Grade de tempos: refina o BPM detectado e acha a fase que mais soma ataques na música toda.
- * 2. O "1" (contagem de 8): o grave cai no 1 do compasso; a troca de harmonia separa o 1 do 5.
- * 3. Frases de 32 tempos alinhadas onde a música mais muda.
- * 4. Seções: cortes na novidade (harmonia + energia) entre compassos de 8 tempos.
+ * 2. O "1" (contagem de 8), tempo a tempo (Viterbi): o grave cai no 1 e no 5, as seções entram no 1. Pontes com
+ *    compasso curto/longo mudam o lugar do 1; o caminho pode "pular" de fase com penalidade, só quando a evidência
+ *    se sustenta. Cada pulo vira um [Shift]. O toque do usuário no 1 também ([SongStructure.withOneAt]).
+ * 3. Frases de 32 tempos alinhadas onde a música mais muda (seguindo os pulos).
+ * 4. Seções: cortes na novidade (harmonia + energia) entre compassos (de 1 em 1).
  * 5. Rótulos por repetição + energia (Refrão, Verso, Pré-refrão, Ponte, Intro, Final) — são palpites.
  */
 object StructureAnalyzer {
@@ -26,6 +28,9 @@ object StructureAnalyzer {
     /** Seção em índices de tempo: [startBeat, endBeat). */
     data class Section(val kind: Kind, val startBeat: Int, val endBeat: Int)
 
+    /** A partir de [beat], a contagem anda [shift] tempos (ponte com compasso curto/longo, ou ajuste manual). */
+    data class Shift(val beat: Int, val shift: Int)
+
     class SongStructure(
         val beatMs: Double,
         val firstBeatMs: Double,
@@ -34,19 +39,37 @@ object StructureAnalyzer {
         /** Índice de um tempo que começa frase (32 tempos). */
         val phraseBeat: Int,
         val sections: List<Section>,
+        /** Ordenados por tempo. Vazio = o 1 nunca muda de lugar. */
+        val shifts: List<Shift> = emptyList(),
     ) {
         val beatCount: Int get() = sections.last().endBeat
+
+        fun shiftAt(beat: Int): Int = shifts.lastOrNull { it.beat <= beat }?.shift ?: 0
 
         // +0,005 tempo: beatStartMs arredonda para ms, e o início de um tempo não pode cair no anterior
         fun beatAt(ms: Long): Int = floor((ms - firstBeatMs) / beatMs + 0.005).toInt().coerceIn(0, beatCount - 1)
         fun beatStartMs(beat: Int): Long = (firstBeatMs + beat * beatMs).roundToLong().coerceAtLeast(0L)
-        fun count(beat: Int): Int = Math.floorMod(beat - downbeat, BEATS_PER_MEASURE) + 1
+        fun count(beat: Int): Int = Math.floorMod(beat - downbeat - shiftAt(beat), BEATS_PER_MEASURE) + 1
+        fun isPhraseStart(beat: Int): Boolean = Math.floorMod(beat - phraseBeat - shiftAt(beat), BEATS_PER_PHRASE) == 0
+
+        /**
+         * "O 1 é aqui": a partir de [beat] a contagem recomeça nele, no mesmo BPM. Os pulos seguintes (pontes)
+         * andam junto, então a relação entre eles e a música continua a mesma.
+         */
+        fun withOneAt(beat: Int): SongStructure {
+            var d = Math.floorMod(count(beat) - 1, BEATS_PER_MEASURE)
+            if (d > BEATS_PER_MEASURE / 2) d -= BEATS_PER_MEASURE
+            if (d == 0) return this
+            val kept = shifts.filter { it.beat < beat }
+            val moved = shifts.filter { it.beat > beat }.map { it.copy(shift = it.shift + d) }
+            return SongStructure(beatMs, firstBeatMs, downbeat, phraseBeat, sections, kept + Shift(beat, shiftAt(beat) + d) + moved)
+        }
         fun sectionIndexAt(beat: Int): Int = sections.indexOfLast { beat >= it.startBeat }.coerceAtLeast(0)
 
         /** Inícios de frase da seção: o próprio início + cada borda da grade de 32 tempos dentro dela. */
         fun phraseStarts(section: Section): List<Int> =
             listOf(section.startBeat) + (section.startBeat + 1 until section.endBeat)
-                .filter { Math.floorMod(it - phraseBeat, BEATS_PER_PHRASE) == 0 }
+                .filter { isPhraseStart(it) }
 
         /** Todos os inícios de frase da música, em ordem. */
         fun allPhraseStarts(): List<Int> = sections.flatMap { phraseStarts(it) }
@@ -69,6 +92,7 @@ object StructureAnalyzer {
     private const val FLUX_HZ = 2000.0
     private const val MIN_SECTION_MEASURES = 4
     private const val NOVELTY_WINDOW = 4
+    private const val SECTION_MEASURES = 6 // ~1 seção a cada 6 compassos de 8 (≈ 48 tempos)
 
     /** @return null quando não há batida clara ou a música é curta demais. */
     fun analyze(samples: FloatArray, sampleRate: Int, bpm: Float, trace: ((String) -> Unit)? = null): SongStructure? {
@@ -133,64 +157,71 @@ object StructureAnalyzer {
             energy[b] /= (end - c).coerceAtLeast(1)
         }
 
-        // 2. O "1": grave a cada 4 tempos; entre 1 e 5, onde a harmonia mais troca
-        val r4 = (0 until 4).maxBy { r -> meanAt(low, r, 4) }
+        // 2. O "1", tempo a tempo
         trace?.invoke("grid bpm=%.3f phaseFrames=%.1f beats=$beats".format(60.0 * fps / bestPeriod, bestPhase))
         trace?.invoke("low mod4: " + (0 until 4).joinToString { "%.2f".format(meanAt(low, it, 4)) })
         trace?.invoke("low mod8: " + (0 until 8).joinToString { "%.2f".format(meanAt(low, it, 8)) })
-        // Entre o 1 e o 5: as seções entram no 1. Mede o salto de volume (4 tempos depois / 4 antes) em cada posição;
-        // o grave mais forte no 5 é comum (arranjo) e não serve para isso. Empate: troca de harmonia.
+        // As seções entram no 1: salto de volume (4 tempos depois / 4 antes). O grave forte no 5 é comum (arranjo).
         val entry = DoubleArray(beats) { b ->
             if (b < 4 || b + 4 > beats) 0.0 else {
                 val j = ln(((b until b + 4).sumOf { energy[it] } + 1e-9) / ((b - 4 until b).sumOf { energy[it] } + 1e-9))
                 if (j > 0) j * j else 0.0
             }
         }
-        val change4 = DoubleArray(beats) { b -> novelty(chroma, energy, b, 4) }
-        val e0 = meanAt(entry, r4, BEATS_PER_MEASURE)
-        val e4 = meanAt(entry, r4 + 4, BEATS_PER_MEASURE)
-        val downbeat = when {
-            abs(e0 - e4) > 0.1 * maxOf(e0, e4) -> if (e0 >= e4) r4 else r4 + 4
-            else -> listOf(r4, r4 + 4).maxBy { r -> meanAt(change4, r, BEATS_PER_MEASURE) }
-        }
-        trace?.invoke("entry mod8: " + (0 until 8).joinToString { "%.4f".format(meanAt(entry, it, 8)) } + " -> downbeat=$downbeat")
+        val shifts = mutableListOf<Shift>()
+        val change8 = DoubleArray(beats) { b -> novelty(chroma, energy, b, 8) }
+        val downbeat = trackDownbeat(low, entry, change8, shifts)
+        val shiftAt = { b: Int -> shifts.lastOrNull { it.beat <= b }?.shift ?: 0 }
+        trace?.invoke("entry mod8: " + (0 until 8).joinToString { "%.4f".format(meanAt(entry, it, 8)) } + " -> downbeat=$downbeat shifts=$shifts")
 
         // 3. Frases: das 4 opções de alinhamento, a que concentra mais mudança nas bordas
         val change16 = DoubleArray(beats) { b -> novelty(chroma, energy, b, 16) }
-        val phraseBeat = (0 until 4).map { downbeat + it * BEATS_PER_MEASURE }
-            .maxBy { r -> meanAt(change16, r, BEATS_PER_PHRASE) }
+        val ones = (0 until beats).filter { Math.floorMod(it - downbeat - shiftAt(it), BEATS_PER_MEASURE) == 0 }
+        val phraseBeat = (0 until 4).map { downbeat + it * BEATS_PER_MEASURE }.maxBy { r ->
+            ones.filter { Math.floorMod(it - r - shiftAt(it), BEATS_PER_PHRASE) == 0 }.map { change16[it] }.average()
+        }
+        val phraseStart = { b: Int -> Math.floorMod(b - phraseBeat - shiftAt(b), BEATS_PER_PHRASE) == 0 }
 
         // 4. Seções: novidade entre compassos, cortes nos picos (mínimo 1 frase entre cortes)
-        val measures = (beats - downbeat) / BEATS_PER_MEASURE
+        // Compassos de "1" em "1" (pontes deixam alguns mais curtos ou mais longos)
+        val measures = ones.size - 1
         if (measures < MIN_SECTION_MEASURES * 2) return null
-        val mStart = { m: Int -> downbeat + m * BEATS_PER_MEASURE }
+        val mStart = { m: Int -> ones[m] }
         val mChroma = Array(measures) { m -> sumRange(chroma, mStart(m), mStart(m + 1)) }
-        val mEnergy = DoubleArray(measures) { m -> (mStart(m) until mStart(m + 1)).sumOf { energy[it] } / BEATS_PER_MEASURE }
+        val mEnergy = DoubleArray(measures) { m -> (mStart(m) until mStart(m + 1)).sumOf { energy[it] } / (mStart(m + 1) - mStart(m)) }
         val nov = DoubleArray(measures) { m ->
             if (m == 0) 0.0 else {
                 val w = minOf(NOVELTY_WINDOW, m, measures - m)
                 val score = distance(sumRange(mChroma, m - w, m), (m - w until m).sumOf { mEnergy[it] } / w,
                     sumRange(mChroma, m, m + w), (m until m + w).sumOf { mEnergy[it] } / w)
-                if (Math.floorMod(mStart(m) - phraseBeat, BEATS_PER_PHRASE) == 0) score * 1.15 else score
+                if (phraseStart(mStart(m))) score * 1.15 else score
             }
         }
-        val mean = nov.average()
-        val std = sqrt(nov.sumOf { (it - mean) * (it - mean) } / nov.size)
+        // Os maiores picos de novidade, mirando ~1 seção a cada SECTION_MEASURES compassos. Limite absoluto não
+        // serve: um pico enorme (fim de pausa) sobe a média/desvio e apaga todos os outros cortes.
+        val medianNov = nov.sorted()[nov.size / 2]
+        val target = (measures / SECTION_MEASURES).coerceAtLeast(2) - 1
         val cuts = mutableListOf<Int>()
         (MIN_SECTION_MEASURES..measures - MIN_SECTION_MEASURES)
-            .filter { m -> nov[m] > mean + 0.5 * std && nov[m] >= nov[m - 1] && nov[m] >= nov[(m + 1).coerceAtMost(measures - 1)] }
+            .filter { m -> nov[m] > medianNov && nov[m] >= nov[m - 1] && nov[m] >= nov[(m + 1).coerceAtMost(measures - 1)] }
             .sortedByDescending { nov[it] }
-            .forEach { m -> if (cuts.none { abs(it - m) < MIN_SECTION_MEASURES }) cuts += m }
+            .forEach { m -> if (cuts.size < target && cuts.none { abs(it - m) < MIN_SECTION_MEASURES }) cuts += m }
         val bounds = listOf(0) + cuts.sorted() + measures
+        trace?.invoke("novelty mediana=%.3f alvo=$target cuts(compassos)=$bounds".format(medianNov))
 
         // 5. Rótulos
         data class Seg(val m0: Int, val m1: Int, val chroma: DoubleArray, val energy: Double, var group: Int = -1)
         val segs = bounds.zipWithNext { a, b ->
             Seg(a, b, sumRange(mChroma, a, b), (a until b).sumOf { mEnergy[it] } / (b - a))
         }
+        // Grupos por distância relativa à própria música: numa mesma tonalidade os acordes médios de tudo se parecem,
+        // então um limite fixo de cosseno junta a música inteira num grupo só.
+        val segDist = { a: Seg, b: Seg -> distance(a.chroma, a.energy, b.chroma, b.energy) }
+        val pairs = segs.indices.flatMap { i -> (i + 1 until segs.size).map { j -> segDist(segs[i], segs[j]) } }
+        val sameGroup = if (pairs.isEmpty()) 0.0 else pairs.sorted()[pairs.size / 2] * 0.6
         val reps = mutableListOf<Seg>()
         for (s in segs) {
-            val g = reps.indexOfFirst { cosine(it.chroma, s.chroma) > 0.95 && abs(ln((it.energy + 1e-9) / (s.energy + 1e-9))) < 0.35 }
+            val g = reps.indexOfFirst { segDist(it, s) < sameGroup }
             s.group = if (g >= 0) g else { reps += s; reps.size - 1 }
         }
         val groupEnergy = DoubleArray(reps.size) { g -> segs.filter { it.group == g }.map { it.energy }.average() }
@@ -203,11 +234,16 @@ object StructureAnalyzer {
         val chorus = (repeated.ifEmpty { reps.indices.toList() }).maxBy { groupEnergy[it] }
         val verse = repeated.filter { it != chorus }.maxByOrNull { size[it] }
 
+        segs.forEach { trace?.invoke("seg m${it.m0}-${it.m1} energia=%.3f grupo=${it.group}".format(it.energy)) }
+        // Se o "refrão" cobriria mais da metade dos trechos, só os mais fortes dele são refrão; os outros, verso.
+        val chorusSegs = segs.indices.filter { segs[it].group == chorus && !edge(it) }
+        val chorusFloor = if (chorusSegs.size * 2 > segs.size) chorusSegs.map { segs[it].energy }.average() else 0.0
         val kinds = segs.mapIndexed { i, s ->
-            val nextChorus = segs.getOrNull(i + 1)?.group == chorus
+            val nextChorus = segs.getOrNull(i + 1)?.let { it.group == chorus && it.energy >= chorusFloor } == true
             when {
                 edge(i) && i == 0 -> Kind.INTRO
                 edge(i) -> Kind.OUTRO
+                s.group == chorus && s.energy < chorusFloor -> Kind.VERSE
                 s.group == chorus -> Kind.CHORUS
                 s.group == verse -> Kind.VERSE
                 nextChorus -> Kind.PRE_CHORUS
@@ -228,7 +264,58 @@ object StructureAnalyzer {
 
         // O fluxo de um quadro pica quando o ataque está a ~3/4 da janela de Hann: o tempo real vem depois do início do quadro
         val firstBeatMs = (bestPhase * HOP + FFT_SIZE * 3 / 4) / sr * 1000.0
-        return SongStructure(bestPeriod / fps * 1000.0, firstBeatMs, downbeat, phraseBeat, sections)
+        return SongStructure(bestPeriod / fps * 1000.0, firstBeatMs, downbeat, phraseBeat, sections, shifts)
+    }
+
+    private const val JUMP_PENALTY = 8.0 // ~6 compassos de grave fora do lugar, ou 2 entradas de seção, para pular
+    private const val ENTRY_WEIGHT = 0.5
+    private const val CHANGE_WEIGHT = 0.5
+    private const val CAP = 8.0
+
+    /**
+     * Posição (0..7) de cada tempo na contagem de 8, por Viterbi. Ganho: grave no 1 e no 5; no 1, entrada de volume e
+     * troca de harmonia (8 tempos antes × 8 depois), que é o que separa o 1 do 5 quando o grave não distingue.
+     * Andar uma posição por tempo é grátis; qualquer outro passo (compasso curto ou longo numa ponte) custa [JUMP_PENALTY].
+     * Preenche [shifts] e devolve o índice de um tempo que é "1" no início.
+     */
+    private fun trackDownbeat(low: DoubleArray, entry: DoubleArray, change: DoubleArray, shifts: MutableList<Shift>): Int {
+        val n = low.size
+        val lowMean = low.average().takeIf { it > 0 } ?: 1.0
+        val entryMean = entry.average().takeIf { it > 0 } ?: 1.0
+        val changeMean = change.average().takeIf { it > 0 } ?: 1.0
+        val m = BEATS_PER_MEASURE
+        fun gain(b: Int, s: Int): Double = when (s) {
+            0 -> low[b] / lowMean + ENTRY_WEIGHT * minOf(entry[b] / entryMean, CAP) + CHANGE_WEIGHT * minOf(change[b] / changeMean, CAP)
+            m / 2 -> low[b] / lowMean
+            else -> 0.0
+        }
+        var score = DoubleArray(m) { gain(0, it) }
+        val back = Array(n) { IntArray(m) }
+        for (b in 1 until n) {
+            val best = score.indices.maxBy { score[it] }
+            val next = DoubleArray(m)
+            for (s in 0 until m) {
+                val prev = Math.floorMod(s - 1, m)
+                val (from, value) = if (score[prev] >= score[best] - JUMP_PENALTY) prev to score[prev] else best to score[best] - JUMP_PENALTY
+                back[b][s] = from
+                next[s] = value + gain(b, s)
+            }
+            score = next
+        }
+        val pos = IntArray(n)
+        pos[n - 1] = score.indices.maxBy { score[it] }
+        for (b in n - 1 downTo 1) pos[b - 1] = back[b][pos[b]]
+
+        val downbeat = Math.floorMod(-pos[0], m)
+        var cur = 0
+        for (b in 1 until n) {
+            if (pos[b] == Math.floorMod(pos[b - 1] + 1, m)) continue
+            var d = Math.floorMod(b - downbeat - pos[b] - cur, m)
+            if (d > m / 2) d -= m
+            cur += d
+            shifts += Shift(b, cur)
+        }
+        return downbeat
     }
 
     private fun meanAt(values: DoubleArray, offset: Int, step: Int): Double {

@@ -48,7 +48,7 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 │  │   (Original) 1.00× · tempo   │  │  ← reset + fator na mesma linha
 │  ╰──────────────────────────────╯  │
 │                                 │
-│   ━━━━━━━━━━┃━━━━━━━━━━━•       │  ← slider expressivo (trilha 16dp)
+│   ━━━━━━━━━━┃━━━━━━━━━━━•       │  ← slider expressivo (trilha 8dp)
 │   40                  200       │
 │                                 │
 │  ╭──────────────────────────────╮  │
@@ -117,7 +117,7 @@ Cores categóricas para **identificar dados** (uma cor por tipo de seção, como
 
 | Token | Especificação | Uso |
 |---|---|---|
-| `display/hero` | 45–53sp · medium · `tnum` · letterspacing −2% · sem font padding | Número de BPM |
+| `display/hero` | 36–42sp · medium · `tnum` · letterspacing −2% · sem font padding | Número de BPM |
 | `headline` | 20sp · bold | Nome do app no header |
 | `title` | 15–16sp · medium · singleLine·ellipsize | Nome da faixa |
 | `body` | 13–14sp · regular · line-height 20sp | Subtítulos, status |
@@ -174,7 +174,7 @@ Cores categóricas para **identificar dados** (uma cor por tipo de seção, como
 ### 4.1 Slider primário (controle de BPM)
 - `com.google.android.material.slider.Slider`, `valueFrom/min` → `valueTo/max`, `stepSize=1`.
 - Estilo `BeatSlider` (M3 Expressive, Material ≥ 1.13): alça em pílula vertical `thumbWidth=4dp` × `thumbHeight=44dp`, vão `thumbTrackGapSize=6dp`, ponto de fim `trackStopIndicatorSize=4dp`.
-- BPM: `trackHeight=16dp`. Scrubber da faixa: `trackHeight=10dp`, `thumbHeight=32dp`.
+- BPM: `trackHeight=8dp`, `thumbHeight=28dp`. Scrubber da faixa: `trackHeight=6dp`, `thumbHeight=24dp`.
 - `tickVisible=false`, `labelBehavior=floating`, label formatado (`"128 BPM"`).
 - Cores: ativo `accent`, inativo `outline`, thumb `accent`.
 - Min/max em `caption` (tertiary) nas extremidades, logo abaixo.
@@ -257,9 +257,10 @@ Cores categóricas para **identificar dados** (uma cor por tipo de seção, como
 - Durante a análise: `LinearProgressIndicator` indeterminado `accent`. Trocar de música não interrompe; o cartão da outra mostra "Analisando outra música…" com o botão desabilitado.
 - Com a análise pronta: botão **Apagar análise** (`ic_delete` 18dp `text_secondary`), que apaga o arquivo salvo e volta ao botão Analisar.
 - Botões tonais `bg/icon-button`, altura 48dp, raio `radius/pill` (mesma receita do cartão Elementos).
-- **Barra de seções** (`structureBar`, 48dp): blocos proporcionais à duração, cor da paleta 3.1.1, seção atual cheia, demais a 40%; linha de posição `text_primary` 2dp. Toque numa seção pula para o início dela.
+- **Barra de seções** (`structureBar`, View de 48dp para o toque, faixa desenhada de 12dp, raio 4dp): blocos proporcionais à duração, cor da paleta 3.1.1, seção atual cheia, demais a 40%; linha de posição `text_primary` 2dp. Toque numa seção pula para o início dela.
 - **Linha de leitura**: nome da seção (`title`, na cor da seção) + "Frase 2 de 4" (`meta`, `tnum`).
-- **Contagem 1–8** (`countView`, 40dp): 8 círculos; o tempo atual em `accent` com o número em `on/accent`, os outros contorno `outline` com número `text_tertiary`. Atualiza ~25×/s enquanto toca.
+- **Contagem 1–8** (`countView`, 48dp, ripple): 8 círculos; o tempo atual em `accent` com o número em `on/accent`, os outros contorno `outline` com número `text_tertiary`. Atualiza ~25×/s enquanto toca. **Toque = "o 1 é aqui"**: o tempo mais próximo vira 1 daqui em diante, no mesmo BPM; as mudanças de ponte seguintes andam junto; fica salvo; Snackbar confirma.
+- O "1" pode mudar de lugar sozinho numa ponte (compasso curto ou longo): a análise detecta e a contagem segue.
 - **Ações** (IconButton 48dp, `bg/icon-button`): frase anterior (`ic_skip_previous`), loop da frase (`ic_repeat`, `accent` quando ativo), próxima frase (`ic_skip_next`).
 - Estados: aguardando BPM, pronto para analisar, analisando, outra música em análise, sem estrutura (sem batida clara, com "Tentar novamente"), salva.
 
@@ -331,6 +332,8 @@ Cores categóricas para **identificar dados** (uma cor por tipo de seção, como
 |---|---|---|
 | 1.0 | 2026-09-01 | Criação do design system a partir da pesquisa de mercado (Spotify, Apple Music, YouTube Music, Poweramp, Retro Music; Material 3/Material You). |
 | 1.1 | 2026-09-03 | Hero card com controles à direita em layout horizontal. Botão "Original" abaixo de − e +. Botões do rodapé agora só ícone (IconButton.Filled, sem texto). Botão "Tocar todas em sequência" adicionado com exclusão mútua com "Repetir". Lista de músicas do dispositivo com RecyclerView funcional, double-tap para tocar, ícone play/pause por item. Tempo atual/total em tempo real. |
+| 1.8 | 2026-11-28 | Barras mais finas (BPM 8dp, progresso 6dp, estrutura 12dp); herói mais 20% menor (36–42sp). |
+| 1.7 | 2026-11-28 | Contagem tocável ("o 1 é aqui"), 48dp; o 1 acompanha pontes com compasso curto/longo. |
 | 1.6 | 2026-11-28 | Estrutura só pelo botão Analisar, salva no aparelho por música; botão Apagar análise. |
 | 1.5 | 2026-11-28 | Paleta de dados (3.1.1) para seções da música; acento único passa a valer para ação. Cartão Estrutura (4.13): seções, frases, contagem 1–8 e loop de frase. Cartão herói 30% menor (`display/hero` 45–53sp, altura mínima −30%); botões seguem com 48dp de toque. |
 | 1.4 | 2026-11-27 | Lista de músicas em painel inferior arrastável (sai o menu hambúrguer); um toque toca; banner AdMob como último item da área que rola. |

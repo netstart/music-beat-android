@@ -11,6 +11,7 @@ class RealSongProbe {
     @Test
     fun probe() {
         val path = System.getProperty("probe.pcm") ?: System.getenv("PROBE_PCM")
+        println("=== $path")
         assumeTrue(path != null && File(path).exists())
         val bytes = File(path!!).readBytes()
         val fb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()

@@ -95,7 +95,7 @@
     <string name="structure_title">Estrutura</string>
     <string name="structure_analyzing">Analisando a estrutura… pode levar alguns minutos</string>
     <string name="structure_none">Estrutura não detectada: sem batida clara</string>
-    <string name="structure_hint">Análise salva no aparelho · seções, frases e contagem de 1 a 8</string>
+    <string name="structure_hint">Análise salva no aparelho. Se o 1 estiver fora, toque na contagem quando ouvir o 1</string>
     <string name="structure_idle">Analise uma vez: a estrutura fica salva no aparelho e abre na hora nas próximas vezes</string>
     <string name="structure_wait_bpm">Disponível depois que o BPM for detectado</string>
     <string name="structure_busy_other">Analisando outra música… esta pode ser analisada em seguida</string>
@@ -110,7 +110,8 @@
     <string name="section_bridge">Ponte</string>
     <string name="section_outro">Final</string>
     <string name="cd_structure_bar">Seções da música; toque numa seção para ir até ela</string>
-    <string name="cd_count">Contagem %1$d de 8</string>
+    <string name="cd_count">Contagem %1$d de 8. Toque no tempo do 1 para ajustar a contagem</string>
+    <string name="structure_one_set">Contagem ajustada: o 1 é aqui daqui em diante</string>
     <string name="cd_phrase_previous">Frase anterior</string>
     <string name="cd_phrase_next">Próxima frase</string>
     <string name="cd_phrase_loop">Repetir a frase atual</string>

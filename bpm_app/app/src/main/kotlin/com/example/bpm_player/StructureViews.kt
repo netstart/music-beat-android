@@ -59,9 +59,10 @@ class StructureBarView @JvmOverloads constructor(context: Context, attrs: Attrib
         val s = structure ?: return
         if (durationMs <= 0) return
         val gap = 2 * dp
-        val radius = 6 * dp
-        val top = height * 0.2f
-        val bottom = height * 0.8f
+        val radius = 4 * dp
+        val band = 12 * dp // faixa fina; a View segue com 48dp para o toque
+        val top = (height - band) / 2
+        val bottom = top + band
         val current = s.sectionIndexAt(s.beatAt(positionMs))
         s.sections.forEachIndexed { i, sec ->
             val x0 = if (i == 0) 0f else xOf(s.beatStartMs(sec.startBeat))
@@ -72,7 +73,7 @@ class StructureBarView @JvmOverloads constructor(context: Context, attrs: Attrib
             canvas.drawRoundRect(rect, radius, radius, fill)
         }
         val x = xOf(positionMs)
-        canvas.drawRect(x - dp, 0f, x + dp, height.toFloat(), head)
+        canvas.drawRect(x - dp, top - 6 * dp, x + dp, bottom + 6 * dp, head)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

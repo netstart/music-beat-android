@@ -16,8 +16,11 @@ class StructureAnalyzerTest {
 
     private val sr = 11025
 
-    /** Bloco de música: compassos de 8 tempos, dois acordes (4 tempos cada), volume. */
-    private data class Part(val measures: Int, val chords: List<List<Int>>, val gain: Double)
+    /** Bloco de música: compassos de 8 tempos (o último pode ser curto/longo, como numa ponte), dois acordes, volume. */
+    private data class Part(val measures: Int, val chords: List<List<Int>>, val gain: Double, val lastMeasure: Int = 8) {
+        fun len(m: Int) = if (m == measures - 1) lastMeasure else 8
+        val beats get() = (0 until measures).sumOf { len(it) }
+    }
 
     // notas MIDI
     private val am = listOf(57, 60, 64); private val f = listOf(53, 57, 60)
@@ -35,7 +38,7 @@ class StructureAnalyzerTest {
     /** Primeiro "1" em [offset]; bumbo em todo tempo, baixo forte no 1 e no 5, acordes trocando no 1 e no 5. */
     private fun render(parts: List<Part>, bpm: Double, offset: Double, pickup: Int = 0): FloatArray {
         val beat = 60.0 / bpm
-        val beats = parts.sumOf { it.measures * 8 }
+        val beats = parts.sumOf { it.beats }
         val n = ((offset + beats * beat + 1.0) * sr).toInt()
         val out = FloatArray(n)
         fun add(t0: Double, len: Double, fn: (Double) -> Double) {
@@ -47,17 +50,78 @@ class StructureAnalyzerTest {
         }
         for (k in 1..pickup) add(offset - k * beat, 0.12, { x -> 0.2 * sin(2 * PI * (50 + 70 * exp(-x * 30)) * x) * exp(-x * 25) })
         var b = 0
-        for (p in parts) for (m in 0 until p.measures) for (k in 0 until 8) {
+        for (p in parts) for (m in 0 until p.measures) for (k in 0 until p.len(m)) {
             val t = offset + b * beat
             add(t, 0.12, { x -> 0.5 * p.gain * sin(2 * PI * (50 + 70 * exp(-x * 30)) * x) * exp(-x * 25) })
             if (k == 0 || k == 4) {
-                val chord = p.chords[k / 4]
+                val chord = p.chords[(k / 4) % p.chords.size]
                 add(t, 4 * beat, { x -> p.gain * 0.6 * sin(2 * PI * midiHz(chord[0] - 24) * x) * exp(-x * 2) })
                 add(t, 4 * beat, { x -> p.gain * 0.12 * chord.sumOf { sin(2 * PI * midiHz(it) * x) } })
             }
             b++
         }
         return out
+    }
+
+    /** Tempos (s) de cada "1" verdadeiro. */
+    private fun trueOnes(parts: List<Part>, bpm: Double, offset: Double): List<Double> {
+        val out = mutableListOf<Double>()
+        var b = 0
+        for (p in parts) for (m in 0 until p.measures) { out += offset + b * 60.0 / bpm; b += p.len(m) }
+        return out
+    }
+
+    /** Fração dos "1" verdadeiros (depois de [fromS]) que a estrutura conta como 1. */
+    private fun hitRate(s: StructureAnalyzer.SongStructure, ones: List<Double>, fromS: Double = 0.0): Double {
+        val sel = ones.filter { it >= fromS }
+        return sel.count { s.count(s.beatAt((it * 1000).toLong() + 20)) == 1 }.toDouble() / sel.size
+    }
+
+    private val bridge = { last: Int -> Part(2, listOf(dm, e), 0.5, lastMeasure = last) }
+
+    @Test
+    fun bridgeWithHalfMeasureMovesTheOne() {
+        val bpm = 128.0
+        val parts = listOf(intro, verse, chorus, bridge(4), verse, chorus, outro)
+        val s = StructureAnalyzer.analyze(render(parts, bpm, 0.37), sr, bpm.toFloat())!!
+        val ones = trueOnes(parts, bpm, 0.37)
+        val bridgeEnd = ones[4 + 8 + 8 + 2]
+        println("meia oitava: shifts=${s.shifts} antes=${hitRate(s, ones.filter { it < ones[20] })} depois=${hitRate(s, ones, bridgeEnd + 16 * 60 / bpm)}")
+        assertEquals(1.0, hitRate(s, ones.filter { it < ones[20] }), 0.0)
+        assertEquals(1.0, hitRate(s, ones, bridgeEnd + 16 * 60 / bpm), 0.0)
+    }
+
+    @Test
+    fun bridgeWithTwoExtraBeatsMovesTheOne() {
+        val bpm = 128.0
+        val parts = listOf(intro, verse, chorus, bridge(10), verse, chorus, outro)
+        val s = StructureAnalyzer.analyze(render(parts, bpm, 0.37), sr, bpm.toFloat())!!
+        val ones = trueOnes(parts, bpm, 0.37)
+        val bridgeEnd = ones[4 + 8 + 8 + 2]
+        println("2 tempos: shifts=${s.shifts} depois=${hitRate(s, ones, bridgeEnd + 16 * 60 / bpm)}")
+        assertEquals(1.0, hitRate(s, ones, bridgeEnd + 16 * 60 / bpm), 0.0)
+    }
+
+    @Test
+    fun regularSongHasNoJumps() {
+        val s = StructureAnalyzer.analyze(render(song, 128.0, 0.37), sr, 128f)!!
+        assertTrue("${s.shifts}", s.shifts.isEmpty())
+    }
+
+    @Test
+    fun tapOnOneRealignsFromThereOnKeepingLaterJumps() {
+        val base = StructureAnalyzer.analyze(render(song, 128.0, 0.37), sr, 128f)!!
+        val s = StructureAnalyzer.SongStructure(base.beatMs, base.firstBeatMs, base.downbeat, base.phraseBeat, base.sections,
+            listOf(StructureAnalyzer.Shift(200, 4))) // uma ponte já detectada no tempo 200
+        val tap = base.downbeat + 83 // contava 4
+        assertEquals(4, s.count(tap))
+        val t = s.withOneAt(tap)
+        assertEquals(1, t.count(tap))
+        assertEquals(1, t.count(tap + 8))
+        assertEquals(s.count(tap - 10), t.count(tap - 10)) // antes do toque não muda
+        assertEquals(Math.floorMod(s.count(205) - 1 - 3, 8) + 1, t.count(205)) // depois da ponte: mesmo ajuste
+        assertEquals(t.shifts, StructureStore.decode(StructureStore.encode(t))!!.shifts)
+        assertTrue(t.withOneAt(tap) === t) // tocar de novo no mesmo 1 não muda nada
     }
 
     @Test
