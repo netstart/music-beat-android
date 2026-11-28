@@ -1,0 +1,40 @@
+// Asset pack "install-time": o modelo HTDemucs (~300 MB, MIT) chega junto com o app pela Play.
+// O arquivo não vai para o git: a cópia oficial fica no Release do GitHub e é baixada no build do AAB.
+plugins {
+    id 'com.android.asset-pack'
+}
+
+assetPack {
+    packName = 'model_pack'
+    dynamicDelivery {
+        deliveryType = 'install-time'
+    }
+}
+
+def modelFile = file('src/main/assets/htdemucs.onnx')
+def modelUrl = 'https://github.com/netstart/music-beat-android/releases/download/model-htdemucs-v1/htdemucs.onnx'
+def modelSha256 = 'd2b401f322558cd57d67a752ed7be3fa55178a0626011eda8ac7bb74e17280c0'
+
+def sha256 = { File f ->
+    def md = java.security.MessageDigest.getInstance('SHA-256')
+    f.withInputStream { s -> byte[] b = new byte[1 << 16]; int r; while ((r = s.read(b)) > 0) md.update(b, 0, r) }
+    md.digest().encodeHex().toString()
+}
+
+tasks.register('fetchModel') {
+    description = 'Baixa o modelo de separação do Release do GitHub (se ainda não estiver aqui) e confere o SHA-256.'
+    outputs.file(modelFile)
+    doLast {
+        if (modelFile.exists() && sha256(modelFile) == modelSha256) return
+        modelFile.parentFile.mkdirs()
+        def part = new File(modelFile.path + '.part')
+        logger.lifecycle("Baixando modelo de separação: $modelUrl")
+        new URL(modelUrl).withInputStream { input -> part.withOutputStream { it << input } }
+        if (sha256(part) != modelSha256) { part.delete(); throw new GradleException('Modelo de separação: SHA-256 não confere') }
+        modelFile.delete()
+        if (!part.renameTo(modelFile)) throw new GradleException('Não foi possível salvar o modelo')
+    }
+}
+
+// Todo build do asset pack (bundleRelease) garante o modelo antes
+tasks.configureEach { t -> if (t.name != 'fetchModel' && t.name.toLowerCase().contains('assetpack')) t.dependsOn('fetchModel') }

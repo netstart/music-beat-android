@@ -26,3 +26,7 @@ logs/*.log
 
 # Modelo ONNX grande — rastrear via Git LFS ou baixar separadamente
 bpm_app/app/src/main/assets/models/htdemucs.onnx
+
+# Modelo do asset pack: baixado do Release do GitHub no build do AAB (model_pack/build.gradle)
+bpm_app/model_pack/src/main/assets/htdemucs.onnx
+bpm_app/model_pack/src/main/assets/htdemucs.onnx.part

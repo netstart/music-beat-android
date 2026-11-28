@@ -7,7 +7,8 @@
 | Peça | Arquivo |
 |---|---|
 | Decoder estéreo (música inteira, ShortArray pré-alocado) | `stem/StereoDecoder.kt` |
-| Separação HTDemucs (janelas 7,8 s, 25% overlap, peso triangular), download do modelo com retomada + SHA-256, cache das 3 últimas músicas | `stem/StemSeparator.kt`, `stem/OverlapAdd.kt` |
+| Separação HTDemucs (janelas 7,8 s, 25% overlap, peso triangular), modelo embutido (asset pack) ou baixado do GitHub com retomada + SHA-256, elementos salvos na pasta escolhida (Configurações) ou nas 3 últimas músicas no app | `stem/StemSeparator.kt`, `stem/OverlapAdd.kt`, `SettingsActivity.kt` |
+| Modelo embutido no AAB: asset pack `model_pack` (install-time, sem compressão, mapeado direto pelo ORT); o build baixa o arquivo do Release `model-htdemucs-v1` do GitHub | `bpm_app/model_pack/build.gradle` |
 | WAV 8 canais → mixer antes do Sonic (solo/mudo/volume em tempo real, BPM preservado) | `stem/StemMixer.kt` |
 | Card "Elementos" (estados: sem modelo, baixando, separando, pronto, falha, não suportado) | `activity_main_stemkit.xml`, `item_stem.xml`, `MainActivity.kt` |
 | Testes (overlap-add reconstrói o sinal, ganhos solo/mudo, mix com saturação) | `src/test/.../stem/StemsTest.kt` |
@@ -28,7 +29,7 @@
 | Evitar | `htdemucs_ft` (4× mais lento), `htdemucs_6s` (piano com muito vazamento) | Custo/benefício ruim no celular; 6s pode virar modo opcional |
 | STFT/iSTFT | Fora do grafo, FFT nativa no host | No GPU export é obrigatório (host-side framing + iSTFT + overlap-add); iSTFT host foi 9,5× mais rápido que dentro do grafo |
 | Janela | 7,8 s (343 980 amostras @ 44,1 kHz, estéreo) | Contrato do modelo; variante de 3,9 s para aparelhos ≤ 4 GB RAM |
-| Distribuição | **Download sob demanda** + SHA-256 (nunca no APK) | 245–304 MB não cabem no APK base |
+| Distribuição | **Embutido no AAB** (asset pack install-time, chega com o app); cópia oficial no Release `model-htdemucs-v1` do GitHub, usada no build e como download de reserva (APK sem o pacote) | O link do Hugging Face podia sumir; 304 MB não cabem no módulo base, mas cabem num asset pack |
 | Futuro "modo rápido" | Band-SCNet (2,6 M params) / SCNet Small / Moises-Light | Promissores, sem export Android pronto |
 | Alternativa paga | AudioShake Local Inference SDK | On-device, mas por solicitação/preço não público |
 

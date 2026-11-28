@@ -337,16 +337,38 @@
                         android:orientation="vertical"
                         android:visibility="gone" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/elementsAction"
-                        style="@style/Widget.Material3.Button.TonalButton"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:minHeight="48dp"
-                        android:text="@string/btn_separate"
-                        android:textColor="@color/text_primary"
-                        app:backgroundTint="@color/bg_icon_button" />
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/elementsAction"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:minHeight="48dp"
+                            android:text="@string/btn_separate"
+                            android:textColor="@color/text_primary"
+                            app:backgroundTint="@color/bg_icon_button" />
+
+                        <!-- Apaga os elementos da música atual e volta ao áudio original -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/elementsClear"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:minHeight="48dp"
+                            android:text="@string/btn_clear_elements"
+                            android:textColor="@color/text_primary"
+                            android:visibility="gone"
+                            app:backgroundTint="@color/bg_icon_button"
+                            app:icon="@drawable/ic_delete"
+                            app:iconSize="18dp"
+                            app:iconTint="@color/text_secondary" />
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
             </androidx.core.widget.NestedScrollView>

@@ -10,16 +10,21 @@ import android.os.Build
 import android.os.Process
 import android.provider.OpenableColumns
 import android.util.Log
+import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.channels.FileChannel
 import java.security.MessageDigest
 import kotlin.math.sqrt
 
@@ -33,7 +38,7 @@ sealed class StemState {
 }
 
 /** WAV de 8 canais (drums, bass, other, vocals × L/R) + quais stems estão praticamente em silêncio. */
-class StemsFile(val wav: File, val silent: BooleanArray)
+class StemsFile(val wav: Uri, val silent: BooleanArray)
 
 /**
  * Separação on-device com HTDemucs (ONNX Runtime + XNNPACK — validado na Fase 0, ver docs/PLANO_STEMS.md).
@@ -48,7 +53,10 @@ object StemSeparator {
     private const val CHANNELS = StemMixer.STEMS * 2
     private const val CACHE_KEEP = 3 // shortcut: guarda só as 3 últimas músicas separadas (~85 MB/min cada); virar configuração se pedirem
 
-    const val MODEL_URL = "https://huggingface.co/soniqo/HTDemucs-Android/resolve/main/htdemucs.onnx"
+    // O modelo vem embutido no AAB (asset pack "model_pack", install-time). O download só existe para
+    // instalações sem o pacote (APK de desenvolvimento) e usa a cópia publicada no GitHub deste repositório.
+    private const val MODEL_ASSET = "htdemucs.onnx"
+    const val MODEL_URL = "https://github.com/netstart/music-beat-android/releases/download/model-htdemucs-v1/htdemucs.onnx"
     private const val MODEL_SHA256 = "d2b401f322558cd57d67a752ed7be3fa55178a0626011eda8ac7bb74e17280c0"
     const val MODEL_BYTES = 304_321_552L
 
@@ -68,19 +76,67 @@ object StemSeparator {
 
     fun modelFile(context: Context) = File(context.filesDir, "models/htdemucs.onnx")
 
-    // shortcut: confere só o tamanho do modelo já baixado (SHA-256 é verificado no download); rehash se surgir corrupção
-    fun isModelReady(context: Context) = modelFile(context).length() == MODEL_BYTES
+    @Volatile private var embedded: Boolean? = null
 
-    /** Stems já separados desta música, se existirem no cache. */
+    /** Modelo dentro do app (asset pack instalado pela Play junto com o app). */
+    fun hasEmbeddedModel(context: Context): Boolean = embedded ?: try {
+        context.assets.open(MODEL_ASSET).close(); true
+    } catch (_: IOException) { false }.also { embedded = it }
+
+    // shortcut: confere só o tamanho do modelo já baixado (SHA-256 é verificado no download); rehash se surgir corrupção
+    fun isModelReady(context: Context) = hasEmbeddedModel(context) || modelFile(context).length() == MODEL_BYTES
+
+    // ── Onde ficam os elementos separados (Configurações) ──
+
+    private fun prefs(context: Context) = context.getSharedPreferences("stems", Context.MODE_PRIVATE)
+
+    /** Pasta escolhida pelo usuário (Storage Access Framework); null = armazenamento interno do app. */
+    fun storageTree(context: Context): Uri? = prefs(context).getString("tree_uri", null)?.let(Uri::parse)
+
+    fun setStorageTree(context: Context, tree: Uri?) {
+        prefs(context).edit().putString("tree_uri", tree?.toString()).apply()
+    }
+
+    private fun treeDir(context: Context, key: String, create: Boolean): DocumentFile? {
+        val tree = storageTree(context) ?: return null
+        val root = DocumentFile.fromTreeUri(context, tree)?.takeIf { it.canWrite() } ?: return null
+        return root.findFile(key) ?: if (create) root.createDirectory(key) else null
+    }
+
+    /** Stems já separados desta música: primeiro na pasta escolhida, depois no armazenamento do app. */
     fun cached(context: Context, uri: Uri): StemsFile? {
-        val dir = cacheDir(context, uri) ?: return null
+        val key = key(context, uri) ?: return null
+        try {
+            treeDir(context, key, create = false)?.let { d ->
+                val wav = d.findFile("stems.wav")
+                val meta = d.findFile("silent.txt")
+                if (wav != null && meta != null) {
+                    val text = context.contentResolver.openInputStream(meta.uri)?.use { it.readBytes().decodeToString() }
+                    parseSilent(text)?.let { return StemsFile(wav.uri, it) }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "pasta dos elementos inacessível: $e") // permissão revogada ou cartão removido
+        }
+        val dir = File(stemsRoot(context), key)
         val wav = File(dir, "stems.wav")
         val meta = File(dir, "silent.txt")
         if (!wav.exists() || !meta.exists()) return null
         dir.setLastModified(System.currentTimeMillis())
-        val silent = meta.readText().trim().split(',').map { it == "1" }.toBooleanArray()
-        if (silent.size != StemMixer.STEMS) return null
-        return StemsFile(wav, silent)
+        val silent = parseSilent(meta.readText()) ?: return null
+        return StemsFile(Uri.fromFile(wav), silent)
+    }
+
+    private fun parseSilent(text: String?): BooleanArray? =
+        text?.trim()?.split(',')?.map { it == "1" }?.toBooleanArray()?.takeIf { it.size == StemMixer.STEMS }
+
+    /** Apaga os elementos desta música (pasta escolhida e armazenamento do app). Não chamar na main thread. */
+    fun delete(context: Context, uri: Uri) {
+        val key = key(context, uri) ?: return
+        try { treeDir(context, key, create = false)?.delete() } catch (e: Exception) { Log.w(TAG, "falha ao apagar na pasta: $e") }
+        File(stemsRoot(context), key).deleteRecursively()
+        val s = _state.value
+        if (s is StemState.Ready && s.uri == uri) _state.value = StemState.Idle
     }
 
     @Synchronized
@@ -184,7 +240,8 @@ object StemSeparator {
         val total = pcm.framesAt(SAMPLE_RATE)
         val windows = (total + STRIDE - 1) / STRIDE
 
-        val dir = cacheDir(context, uri) ?: throw IllegalStateException("música sem identificador")
+        val key = key(context, uri) ?: throw IllegalStateException("música sem identificador")
+        val dir = File(stemsRoot(context), key)
         dir.mkdirs()
         val tmp = File(dir, "stems.wav.part")
         val env = OrtEnvironment.getEnvironment()
@@ -198,7 +255,7 @@ object StemSeparator {
         }
         val sumSq = DoubleArray(StemMixer.STEMS)
         try {
-            env.createSession(modelFile(context).absolutePath, opts).use { session ->
+            openSession(context, env, opts).use { session ->
                 val inputName = session.inputNames.first()
                 val inBuf = ByteBuffer.allocateDirect(2 * SEG * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
                 val pred = FloatArray(CHANNELS * SEG)
@@ -244,9 +301,51 @@ object StemSeparator {
         val silent = BooleanArray(StemMixer.STEMS) { rms[it] < loudest * 0.03 }
         val wav = File(dir, "stems.wav")
         check(tmp.renameTo(wav)) { "não foi possível salvar os stems" }
-        File(dir, "silent.txt").writeText(silent.joinToString(",") { if (it) "1" else "0" })
+        val meta = File(dir, "silent.txt").apply { writeText(silent.joinToString(",") { if (it) "1" else "0" }) }
+        moveToTree(context, key, wav, meta)?.let { return StemsFile(it, silent) }
         trimCache(context)
-        return StemsFile(wav, silent)
+        return StemsFile(Uri.fromFile(wav), silent)
+    }
+
+    /** Copia para a pasta escolhida e apaga a cópia interna; se a pasta falhar, os elementos ficam no app. */
+    private fun moveToTree(context: Context, key: String, wav: File, meta: File): Uri? {
+        if (storageTree(context) == null) return null
+        return try {
+            val d = treeDir(context, key, create = true) ?: return null
+            d.listFiles().forEach { it.delete() }
+            val out = d.createFile("audio/x-wav", "stems.wav") ?: return null
+            val m = d.createFile("text/plain", "silent.txt") ?: return null
+            val cr = context.contentResolver
+            cr.openOutputStream(out.uri)?.use { o -> wav.inputStream().use { it.copyTo(o, 1 shl 16) } } ?: return null
+            cr.openOutputStream(m.uri)?.use { o -> o.write(meta.readBytes()) } ?: return null
+            wav.parentFile?.deleteRecursively()
+            out.uri
+        } catch (e: Exception) {
+            Log.w(TAG, "não foi possível salvar na pasta escolhida; ficam no app: $e")
+            null
+        }
+    }
+
+    /** Arquivo baixado → caminho; embutido → mapeia o asset sem copiar (fica sem compressão no APK). */
+    private fun openSession(context: Context, env: OrtEnvironment, opts: OrtSession.SessionOptions): OrtSession {
+        val file = modelFile(context)
+        if (file.length() == MODEL_BYTES) return env.createSession(file.absolutePath, opts)
+        try {
+            context.assets.openFd(MODEL_ASSET).use { fd ->
+                FileInputStream(fd.fileDescriptor).channel.use { ch ->
+                    return env.createSession(ch.map(FileChannel.MapMode.READ_ONLY, fd.startOffset, fd.length), opts)
+                }
+            }
+        } catch (e: Exception) {
+            if (e is FileNotFoundException && !hasEmbeddedModel(context)) throw e
+            Log.w(TAG, "modelo embutido não mapeável ($e); copiando uma vez para o app")
+            // asset comprimido ou buffer recusado: copia uma vez para o armazenamento do app
+            file.parentFile?.mkdirs()
+            val part = File(file.path + ".part")
+            context.assets.open(MODEL_ASSET).use { input -> FileOutputStream(part).use { input.copyTo(it, 1 shl 16) } }
+            check(part.renameTo(file)) { "não foi possível preparar o modelo" }
+            return env.createSession(file.absolutePath, opts)
+        }
     }
 
     private fun getIntraThreads() = Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
@@ -254,15 +353,14 @@ object StemSeparator {
     private fun stemsRoot(context: Context) = File(context.cacheDir, "stems")
 
     /** Chave = URI + tamanho do arquivo (muda se o arquivo for trocado). */
-    private fun cacheDir(context: Context, uri: Uri): File? {
+    private fun key(context: Context, uri: Uri): String? {
         val size = try {
             context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
                 if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else -1L
             } ?: -1L
         } catch (_: Exception) { -1L }
-        val key = MessageDigest.getInstance("SHA-1").digest("$uri|$size".toByteArray())
+        return MessageDigest.getInstance("SHA-1").digest("$uri|$size".toByteArray())
             .joinToString("") { "%02x".format(it) }
-        return File(stemsRoot(context), key)
     }
 
     private fun trimCache(context: Context) {

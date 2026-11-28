@@ -296,6 +296,9 @@ class MainActivity : AppCompatActivity() {
             setupPlayerControls()
             setupBpmControls()
             setupElements()
+            binding.toolbar.menu.add(R.string.settings_title).setOnMenuItemClickListener {
+                startActivity(Intent(this, SettingsActivity::class.java)); true
+            }
             Ads.setup(this, binding.adContainer, binding.toolbar)
 
             Log.e("BPM_DEBUG", "=== onCreate PHASE 1 OK ===")
@@ -684,7 +687,7 @@ class MainActivity : AppCompatActivity() {
             playingStems = stems
             exoPlayer = buildPlayer().also { player ->
                 player.repeatMode = if (isRepeating) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-                player.setMediaItem(MediaItem.fromUri(stems?.let { Uri.fromFile(it.wav) } ?: uri))
+                player.setMediaItem(MediaItem.fromUri(stems?.wav ?: uri))
                 player.prepare()
                 player.playWhenReady = true
                 player.addListener(object : Player.Listener {
@@ -803,6 +806,10 @@ class MainActivity : AppCompatActivity() {
                 else -> StemSeparator.start(this, uri)
             }
         }
+        binding.elementsClear.setOnClickListener { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            clearElements()
+        }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 StemSeparator.state.collect { onStemState(it) }
@@ -831,19 +838,36 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onStemState(state: StemState) {
-        if (state is StemState.Ready && state.uri == playingSongUri && playingStems == null) switchToStems(state.stems)
+        if (state is StemState.Ready && state.uri == playingSongUri && playingStems == null) switchSource(state.stems)
         renderElements(state)
     }
 
-    /** Troca a fonte do player para o WAV de stems mantendo posição e play/pause. */
-    private fun switchToStems(stems: StemsFile) {
+    /** Troca a fonte do player (WAV de stems ou arquivo original) mantendo posição e play/pause. */
+    private fun switchSource(stems: StemsFile?) {
         val player = exoPlayer ?: return
+        val uri = playingSongUri ?: return
         val position = player.currentPosition
         val play = player.playWhenReady
         playingStems = stems
-        player.setMediaItem(MediaItem.fromUri(Uri.fromFile(stems.wav)), position)
+        player.setMediaItem(MediaItem.fromUri(stems?.wav ?: uri), position)
         player.prepare()
         player.playWhenReady = play
+    }
+
+    /** Apaga os elementos da música que está tocando e volta ao áudio original. */
+    private fun clearElements() {
+        val uri = playingSongUri ?: return
+        switchSource(null) // solta o WAV antes de apagar
+        stemControls.indices.forEach { stemControls[it] = StemControl() }
+        stemControls.indices.forEach { renderStemRow(it) }
+        renderElements()
+        lifecycleScope.launch(Dispatchers.IO) {
+            StemSeparator.delete(applicationContext, uri)
+            withContext(Dispatchers.Main) {
+                renderElements()
+                Snackbar.make(binding.root, R.string.elements_cleared, Snackbar.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun renderElements(state: StemState = StemSeparator.state.value) {
@@ -858,6 +882,7 @@ class MainActivity : AppCompatActivity() {
         binding.elementsProgress.visibility = View.GONE
         binding.elementsAction.visibility = View.VISIBLE
         binding.elementsAction.isEnabled = !busyElsewhere
+        binding.elementsClear.visibility = if (stems != null) View.VISIBLE else View.GONE
         when {
             !StemSeparator.isSupported(this) -> {
                 binding.elementsStatus.text = getString(R.string.elements_unsupported)

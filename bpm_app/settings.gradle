@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "BPMPlayerNative"
 include ':app'
+include ':model_pack' // modelo de separação embutido no AAB (asset pack install-time)

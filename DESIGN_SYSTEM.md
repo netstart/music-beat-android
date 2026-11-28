@@ -224,9 +224,20 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 - Nunca intersticial nem app open: não interromper a música. Plano completo em `docs/MONETIZACAO.md`.
 - Consentimento UMP antes de pedir anúncios; item **Privacidade dos anúncios** no menu da toolbar quando exigido.
 
+### 4.11 Cartão Elementos (separação)
+- Mesmo cartão `bg_card` do Now Playing; título `title`, status `body` `text_secondary`, progresso `LinearProgressIndicator` `accent`.
+- A separação **nunca começa sozinha**: só pelo botão **Separar elementos** (vira **Cancelar** durante o trabalho).
+- Com os elementos prontos: linhas solo/mudo/volume e o botão **Limpar elementos** (`ic_delete` 18dp `text_secondary`), que apaga os arquivos da música atual e volta ao áudio original sem parar a reprodução.
+- Botões tonais `bg/icon-button`, altura 48dp, raio `radius/pill`, lado a lado com 8dp entre eles.
+
+### 4.12 Tela de Configurações
+- Activity própria (não diálogo), aberta pelo item **Configurações** do menu da toolbar; toolbar `bg/base` com `ic_arrow_back` ("Voltar").
+- Conteúdo em cartões `bg_card` com padding horizontal da tela 16dp; cada cartão: título `title`, explicação `body` `text_secondary`, valor atual `body` `text_primary`, ações em botões tonais de 48dp.
+- Hoje: **Elementos separados** — pasta escolhida pelo usuário (Storage Access Framework) ou armazenamento do app.
+
 ### 4.9 Feedback textual
 - Toasts curtos para eventos assíncronos (resultado da detecção de BPM).
-- Nenhum diálogo/modal nesta fase — estados são comunicados inline (linha de status).
+- Nenhum diálogo/modal nesta fase — estados são comunicados inline (linha de status); confirmações curtas em Snackbar.
 
 ---
 
@@ -292,4 +303,5 @@ O design do BeatTrack sintetiza o que a pesquisa de mercado (2024–2026) aponto
 |---|---|---|
 | 1.0 | 2026-09-01 | Criação do design system a partir da pesquisa de mercado (Spotify, Apple Music, YouTube Music, Poweramp, Retro Music; Material 3/Material You). |
 | 1.1 | 2026-09-03 | Hero card com controles à direita em layout horizontal. Botão "Original" abaixo de − e +. Botões do rodapé agora só ícone (IconButton.Filled, sem texto). Botão "Tocar todas em sequência" adicionado com exclusão mútua com "Repetir". Lista de músicas do dispositivo com RecyclerView funcional, double-tap para tocar, ícone play/pause por item. Tempo atual/total em tempo real. |
+| 1.3 | 2026-11-27 | Cartão Elementos (4.11) com "Separar" e "Limpar elementos"; tela de Configurações (4.12) para a pasta dos elementos separados. |
 | 1.2 | 2026-11-27 | Redesign M3 Expressive: sliders com trilha grossa e alça em pílula (Material 1.13), herói centrado com −/+ de 48dp nas laterais, toolbar sem fundo (`bg/base`). |

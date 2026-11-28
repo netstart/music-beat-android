@@ -64,6 +64,17 @@
     <string name="elements_unsupported">Separação indisponível neste aparelho (requer Android 7+, 64-bit e 3 GB de RAM)</string>
     <string name="btn_separate">Separar elementos</string>
     <string name="btn_download_separate">Baixar modelo e separar</string>
+    <string name="btn_clear_elements">Limpar elementos</string>
+    <string name="elements_cleared">Elementos desta música apagados</string>
+    <string name="settings_title">Configurações</string>
+    <string name="settings_stems_title">Elementos separados</string>
+    <string name="settings_stems_desc">Onde salvar a separação de cada música. Ocupa cerca de 85 MB por minuto de música.</string>
+    <string name="settings_stems_internal">Armazenamento do app: guarda as 3 últimas músicas e é apagado ao desinstalar</string>
+    <string name="settings_stems_folder">Pasta: %1$s</string>
+    <string name="settings_choose_folder">Escolher pasta</string>
+    <string name="settings_use_internal">Usar armazenamento do app</string>
+    <string name="settings_folder_error">Não foi possível usar essa pasta</string>
+    <string name="cd_back">Voltar</string>
     <string name="btn_cancel">Cancelar</string>
     <string name="btn_retry">Tentar novamente</string>
     <string name="stem_drums">Bateria</string>

@@ -33,6 +33,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <!-- Telemetria do ONNX Runtime desligada: nenhum dado sai do aparelho. -->
         <provider
             android:name="ai.onnxruntime.TelemetryInitializer"

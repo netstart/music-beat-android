@@ -22,6 +22,11 @@ android {
         buildConfigField "String", "ADMOB_BANNER_ID", '"ca-app-pub-3940256099942544/9214589741"'
     }
 
+    // Modelo de separação (~300 MB) vai num asset pack install-time: chega com o app, sem download
+    assetPacks = [':model_pack']
+    // sem compressão: o app mapeia o .onnx direto do APK, sem copiar
+    androidResources { noCompress 'onnx' }
+
     buildFeatures {
         viewBinding true
         buildConfig true
@@ -105,6 +110,7 @@ dependencies {
 
     // Separação de stems on-device (HTDemucs via ONNX Runtime + XNNPACK) — ver docs/PLANO_STEMS.md
     implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.32.0'
+    implementation 'androidx.documentfile:documentfile:1.0.1' // pasta escolhida para os elementos separados
 
     // ── Fase 0: benchmark de separação de stems (somente debug; ver docs/PLANO_STEMS.md) ──
     debugImplementation 'com.google.ai.edge.litert:litert:1.4.2'
